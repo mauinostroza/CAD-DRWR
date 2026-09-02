@@ -1,0 +1,45 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Etiqueta de versión para el nombre del artefacto (opcional)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed `
+            --name StructGenCAD `
+            main.py
+
+      - name: Rename artifact with version
+        if: ${{ github.event.inputs.version != '' }}
+        run: |
+          Rename-Item -Path "dist\StructGenCAD.exe" -NewName "StructGenCAD-${{ github.event.inputs.version }}.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StructGenCAD-windows-exe
+          path: dist/*.exe
+          retention-days: 30
