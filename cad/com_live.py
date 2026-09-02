@@ -329,10 +329,13 @@ def _tabla_prims(tb: Table):
 
 # ------------------------------------------------------------- API pública --
 
-def enviar_dibujo(dwg: Drawing, abrir: str = None) -> str:
+def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None) -> str:
     """Envía el dibujo IR a la sesión CAD abierta (COM en vivo).
 
     Si `abrir` es una ruta .dxf, en su lugar abre ese archivo en el CAD.
+    Si `origen` es un punto (x, y), el dibujo se desplaza para que su
+    origen local quede en ese punto (p.ej. el resultado de `pedir_punto`,
+    un clic en pantalla del usuario).
     Devuelve un resumen legible para la barra de estado.
     """
     pythoncom, GetActiveObject, VARIANT = _com()
@@ -341,6 +344,9 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None) -> str:
     try:
         doc = _documento(app, abrir)
         _capas(doc)
+
+        if origen is not None:
+            dwg = ir.translate(dwg, origen[0], origen[1])
 
         prims = _aplanar(dwg) if not abrir else []
         if prims:
@@ -397,6 +403,35 @@ def abrir_dxf_en_cad(path: str) -> str:
     if not os.path.isfile(path):
         raise RuntimeError(f"No existe el archivo:\n{path}")
     return enviar_dibujo(Drawing(), abrir=path)
+
+
+def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "):
+    """Activa el documento del CAD y pide al usuario un clic en pantalla
+    (comando nativo GetPoint). Devuelve (x, y) en coordenadas de modelo
+    del CAD. Lanza RuntimeError si no hay CAD/documento o si se cancela
+    (Esc / botón derecho)."""
+    pythoncom, GetActiveObject, VARIANT = _com()
+    app, pid = detectar()
+    pythoncom.CoInitialize()
+    try:
+        doc = _documento(app)
+        try:
+            app.Visible = True
+            app.WindowState = 3  # acMax: trae la ventana del CAD al frente
+        except Exception:
+            pass
+        try:
+            doc.Activate()
+        except Exception:
+            pass
+        try:
+            pt = doc.Utility.GetPoint(None, mensaje)
+        except Exception:
+            raise RuntimeError(
+                "No se especificó ningún punto (selección cancelada).")
+        return (float(pt[0]), float(pt[1]))
+    finally:
+        pythoncom.CoUninitialize()
 
 
 def estado() -> str:

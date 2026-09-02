@@ -167,3 +167,38 @@ def rect(x0: float, y0: float, x1: float, y1: float,
     """Rectángulo por esquinas opuestas."""
     return Poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
                 closed=True, layer=layer)
+
+
+def translate(dwg: Drawing, dx: float, dy: float) -> Drawing:
+    """Devuelve una copia de `dwg` con todas las entidades desplazadas
+    (dx, dy) mm. Usado para ubicar el dibujo en un punto elegido por el
+    usuario (p.ej. un clic en pantalla dentro del CAD) antes de enviarlo."""
+    def tp(p: PT) -> PT:
+        return (p[0] + dx, p[1] + dy)
+
+    def te(e):
+        if isinstance(e, Line):
+            return Line(tp(e.p1), tp(e.p2), e.layer, e.width)
+        if isinstance(e, Circle):
+            return Circle(tp(e.c), e.r, e.layer, e.filled)
+        if isinstance(e, Arc):
+            return Arc(tp(e.c), e.r, e.a1, e.a2, e.ccw, e.layer)
+        if isinstance(e, Poly):
+            return Poly([tp(p) for p in e.pts], e.closed, e.layer, e.width)
+        if isinstance(e, Filled):
+            return Filled([tp(p) for p in e.pts], e.layer)
+        if isinstance(e, Text):
+            return Text(tp(e.pos), e.s, e.h, e.rot, e.layer, e.ha, e.va)
+        if isinstance(e, Dim):
+            return Dim(tp(e.p1), tp(e.p2), tp(e.base), e.vertical, e.layer,
+                       e.txt)
+        if isinstance(e, Leader):
+            return Leader(tp(e.tip), tp(e.elbow), e.s, e.h, e.layer,
+                         e.shelf, e.side)
+        if isinstance(e, Table):
+            return Table(tp(e.pos), list(e.col_w), e.row_h,
+                        list(e.header), [list(r) for r in e.rows],
+                        e.title, e.h_row, dict(e.sketches))
+        return e
+
+    return Drawing(dwg.title, [te(e) for e in dwg.ents])

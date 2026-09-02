@@ -52,6 +52,7 @@ CAD que esté abierto** en ese momento, sin archivos intermedios:
 | **Enviar a CAD (COM)** (`Ctrl+G`) | Crea el detalle entidad por entidad en el espacio modelo del documento activo: capas, cotas asociativas nativas, textos, sólidos y polilíneas. Luego regenera y hace zoom extensión. |
 | **Abrir DXF en CAD** | Exporta un DXF temporal y lo abre como documento en el CAD activo (útil para conservar el archivo). |
 | **Detectar CAD** | Prueba la conexión y muestra programa, versión y documento activo. |
+| **Ubicar con clic** (activado por defecto) | Antes de enviar, minimiza la app y pide un clic en pantalla dentro del CAD (`GetPoint` nativo); el dibujo se ubica con su origen en ese punto. Desactive esta opción para enviar siempre en el origen (0,0). |
 
 Requisitos y notas:
 - Solo **Windows**, con `pip install pywin32` (incluido en requirements).
