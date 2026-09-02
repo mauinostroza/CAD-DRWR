@@ -81,6 +81,12 @@ class MainWindow(QMainWindow):
                           "abierta (AutoCAD/ZWCAD) vía COM")
         a_send.triggered.connect(self.send_com)
         tb.addAction(a_send)
+        self.a_pick = QAction("Ubicar con clic", self)
+        self.a_pick.setCheckable(True)
+        self.a_pick.setChecked(True)
+        self.a_pick.setToolTip("Antes de enviar, pide un clic en pantalla "
+                               "dentro del CAD para ubicar el dibujo ahí")
+        tb.addAction(self.a_pick)
         a_open = QAction("Abrir DXF en CAD", self)
         a_open.setToolTip("Exporta un DXF temporal y lo abre en el CAD activo")
         a_open.triggered.connect(self.open_in_cad)
@@ -191,8 +197,25 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error",
                                  f"Parámetros inválidos:\n{exc}")
             return
+
+        origen = None
+        if self.a_pick.isChecked():
+            self.showMinimized()
+            try:
+                origen = com_live.pedir_punto()
+            except RuntimeError as exc:
+                self.showNormal()
+                self.statusBar().showMessage(str(exc))
+                return
+            except Exception as exc:
+                self.showNormal()
+                QMessageBox.critical(self, "Enviar a CAD (COM)",
+                                     f"No se pudo pedir el punto:\n{exc}")
+                return
+            self.showNormal()
+
         try:
-            info = com_live.enviar_dibujo(dwg)
+            info = com_live.enviar_dibujo(dwg, origen=origen)
         except RuntimeError as exc:
             QMessageBox.warning(self, "Enviar a CAD (COM)", str(exc))
             return
