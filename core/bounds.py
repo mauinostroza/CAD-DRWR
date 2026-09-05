@@ -8,6 +8,7 @@ La estimación de texto es deliberadamente conservadora y no depende de Qt.
 import math
 
 from .ir import (Arc, Circle, Dim, Filled, Leader, Line, Poly, Table, Text)
+from .dims import dim_parts
 
 
 def _text_size(text: str, height: float):
@@ -51,17 +52,17 @@ def entity_bounds(e, dim_text_height=3.0):
     if isinstance(e, Line):
         return _from_points([e.p1, e.p2])
     if isinstance(e, (Poly, Filled)):
-        return _from_points(e.pts)
+        return _from_points(e.pts) if e.pts else None
     if isinstance(e, (Circle, Arc)):
         x, y = e.c
         return x - e.r, y - e.r, x + e.r, y + e.r
     if isinstance(e, Text):
         return _text_bounds(e)
     if isinstance(e, Dim):
-        box = _from_points([e.p1, e.p2, e.base])
-        label = e.txt or "0000"
-        text = Text(e.base, label, dim_text_height, 90 if e.vertical else 0)
-        return union_bounds([box, _text_bounds(text)])
+        # Usa la misma descomposición que el visor: incluye líneas de
+        # extensión, texto rotado y las flechas exteriores de cotas estrechas.
+        return union_bounds(entity_bounds(part, dim_text_height)
+                            for part in dim_parts(e, dim_text_height))
     if isinstance(e, Leader):
         end = (e.elbow[0] + e.side * e.shelf, e.elbow[1])
         label = Text((end[0], end[1] + e.h * 0.3), e.s, e.h,
