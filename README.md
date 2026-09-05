@@ -42,6 +42,10 @@ Dependencias:
 En la vista previa: **rueda** = zoom, **arrastrar** = paneo,
 **doble clic** = ajustar a la ventana.
 
+El encuadre considera la extensión completa de textos, líderes y títulos de
+tabla, evitando anotaciones recortadas. Las cotas estrechas desplazan sus
+flechas al exterior automáticamente.
+
 ### Conexión COM en vivo (AutoCAD / ZWCAD abiertos)
 
 Además del archivo DXF, la aplicación puede **dibujar directamente en el
@@ -85,6 +89,10 @@ La geometría no cambia.
 | **Perno de Anclaje** | Detalle de perno tipo L (codo 90°), J (gancho 135°) o recto con placa de anclaje: rosca, tuerca, arandela, concreto, N.P. y cuadro de pernos. |
 | **Perfil Estructural** | Secciones I/W, H (HEA), canal C, ángulo L, T y caja HSS con acotado completo, ejes y propiedades aproximadas (área y peso lineal). Series comerciales W/HE precargadas. |
 | **Forma de Barra** | Barras recta, L 90°, U, estribo cerrado 135° y Z, con radios de doblez reales (R = k·Ø), desarrollo calculado y fila de despiece. |
+
+Las elevaciones altas de pedestales se presentan con una rotura gráfica
+convencional: la geometría se mantiene legible y la cota indica siempre la
+altura real.
 
 ## 4. Lo que se genera en el DXF
 
@@ -187,3 +195,16 @@ El ejecutable queda en `dist/StructGenCAD.exe`.
 - Más perfiles (HP, cañas, angulares dobles), placas de espera y conexiones
   empernadas/soldadas.
 - Exportación directa a DWG mediante ODA File Converter.
+
+## 9. Pruebas
+
+Las pruebas comprueban la generación de todos los módulos, unidades de los
+rótulos de armadura, encuadre de anotaciones, tablas, cotas estrechas y
+representación abreviada de pedestales altos:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+También se ejecutan automáticamente en cada pull request mediante GitHub
+Actions.

@@ -88,10 +88,17 @@ def dim_parts(d: Dim, th: float) -> list:
         for x, y in (p1, p2):
             out.append(Line((x, y + sgn * g0), (x, y_dim + sgn * ov), ir.L_ACOT))
         x1, x2 = p1[0], p2[0]
-        out.append(Line((x1, y_dim), (x2, y_dim), ir.L_ACOT))
-        out.append(arrow((x1, y_dim), 180.0, asz))
-        out.append(arrow((x2, y_dim), 0.0, asz))
         txt = d.txt if d.txt else ir.fmt_mm(abs(x2 - x1))
+        outside = abs(x2 - x1) < max(2.4 * asz, 0.68 * th * len(txt) + asz)
+        if outside:
+            out.append(Line((x1 - 1.8 * asz, y_dim),
+                            (x2 + 1.8 * asz, y_dim), ir.L_ACOT))
+            out.append(arrow((x1, y_dim), 0.0, asz))
+            out.append(arrow((x2, y_dim), 180.0, asz))
+        else:
+            out.append(Line((x1, y_dim), (x2, y_dim), ir.L_ACOT))
+            out.append(arrow((x1, y_dim), 180.0, asz))
+            out.append(arrow((x2, y_dim), 0.0, asz))
         out.append(Text(((x1 + x2) / 2.0, y_dim + OFF_K * th), txt, th,
                         0, ir.L_ACOT, "c", "b"))
     else:
@@ -101,10 +108,17 @@ def dim_parts(d: Dim, th: float) -> list:
         for x, y in (p1, p2):
             out.append(Line((x + sgn * g0, y), (x_dim + sgn * ov, y), ir.L_ACOT))
         y1, y2 = p1[1], p2[1]
-        out.append(Line((x_dim, y1), (x_dim, y2), ir.L_ACOT))
-        out.append(arrow((x_dim, y1), 270.0, asz))
-        out.append(arrow((x_dim, y2), 90.0, asz))
         txt = d.txt if d.txt else ir.fmt_mm(abs(y2 - y1))
+        outside = abs(y2 - y1) < max(2.4 * asz, 0.68 * th * len(txt) + asz)
+        if outside:
+            out.append(Line((x_dim, y1 - 1.8 * asz),
+                            (x_dim, y2 + 1.8 * asz), ir.L_ACOT))
+            out.append(arrow((x_dim, y1), 90.0, asz))
+            out.append(arrow((x_dim, y2), 270.0, asz))
+        else:
+            out.append(Line((x_dim, y1), (x_dim, y2), ir.L_ACOT))
+            out.append(arrow((x_dim, y1), 270.0, asz))
+            out.append(arrow((x_dim, y2), 90.0, asz))
         out.append(Text((x_dim - OFF_K * th, (y1 + y2) / 2.0), txt, th,
                         90, ir.L_ACOT, "c", "b"))
     return out

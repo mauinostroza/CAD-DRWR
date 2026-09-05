@@ -17,6 +17,7 @@ from core import ir
 from core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
                      Table)
 from core.dims import dim_parts
+from core.bounds import drawing_bounds
 
 BG = QColor("#23272e")
 LAYER_QCOLOR = {
@@ -63,19 +64,18 @@ class PreviewWidget(QWidget):
         self.update()
 
     def fit(self):
-        pts = []
-        for e in self.dwg.ents:
-            pts.extend(_ent_pts(e))
-        if not pts:
+        bounds = drawing_bounds(self.dwg)
+        if bounds is None:
             self.center, self.scale = (0, 0), 0.2
             self.update()
             return
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        w = max(max(xs) - min(xs), 1.0)
-        h = max(max(ys) - min(ys), 1.0)
-        cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
-        self.scale = min((self.width() - 60) / w, (self.height() - 60) / h)
+        x0, y0, x1, y1 = bounds
+        w = max(x1 - x0, 1.0)
+        h = max(y1 - y0, 1.0)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        margin = 90
+        self.scale = min((self.width() - margin) / w,
+                         (self.height() - margin) / h)
         self.scale = max(self.scale, 1e-4)
         self.center = (cx, cy)
         self.update()
@@ -292,6 +292,12 @@ def _draw_table(p: QPainter, tb: Table, X, Y, s):
     p.setPen(pen)
     p.setBrush(Qt.NoBrush)
     p.drawRect(QRectF(col_x[0], y_top, col_x[-1] - col_x[0], y_end - y_top))
+    if tb.title:
+        sub = Text((x0 + sum(tb.col_w) / 2,
+                    y0 + (tb.h_row or tb.row_h * 0.4) * 1.1),
+                   tb.title, (tb.h_row or tb.row_h * 0.4) * 1.15,
+                   0, ir.L_TABLA, "c", "b")
+        _draw_text(p, sub, X, Y, s)
     if tb.header:
         p.drawLine(QPointF(col_x[0], y_hdr), QPointF(col_x[-1], y_hdr))
     for cx in col_x[1:-1]:

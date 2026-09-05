@@ -88,6 +88,8 @@ def build_pedestal(p: dict) -> ir.Drawing:
     # ejes
     d.ents.append(line_y(0, -B / 2 - 40 * f, B / 2 + 40 * f))
     d.ents.append(line_x(0, -H / 2 - 40 * f, H / 2 + 40 * f))
+    d.ents.append(Text((0, H / 2 + 92 * f), "SECCIÓN", 3.5 * f,
+                       layer=ir.L_TXT, ha="c", va="m"))
 
     # acotado sección
     dbb = DimBuilder(d.ents, th)
@@ -154,10 +156,24 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, f, th):
     z_rect = ir.rect(ex - Wf / 2, -hf, ex + Wf / 2, 0)
     e.append(z_rect)
     e.extend(hatch_poly(z_rect.pts, 9 * f))
-    p_rect = ir.rect(ex - B / 2, 0, ex + B / 2, Hm)
-    e.append(p_rect)
-    e.extend(break_line((ex - B / 2 - 6 * f, Hm), (ex + B / 2 + 6 * f, Hm),
-                        5 * f))
+    # Una elevación muy alta se representa con una rotura convencional para
+    # que la sección y el cuadro sigan siendo legibles. La cota conserva Hm.
+    shortened = Hm > 1100.0
+    if shortened:
+        seg = min(400.0, Hm * 0.25)
+        gap = 70.0 * f
+        y_upper = seg + gap
+        Hdraw = y_upper + seg
+        e.append(ir.rect(ex - B / 2, 0, ex + B / 2, seg))
+        e.append(ir.rect(ex - B / 2, y_upper, ex + B / 2, Hdraw))
+        for yb in (seg, y_upper):
+            e.extend(break_line((ex - B / 2 - 5 * f, yb),
+                                (ex + B / 2 + 5 * f, yb), 5 * f))
+    else:
+        seg, y_upper, Hdraw = Hm, Hm, Hm
+        e.append(ir.rect(ex - B / 2, 0, ex + B / 2, Hdraw))
+    e.extend(break_line((ex - B / 2 - 6 * f, Hdraw),
+                        (ex + B / 2 + 6 * f, Hdraw), 5 * f))
     # arranques con gancho en zapata (alternando lado) + barras principales
     for i, xb in enumerate(xs):
         x = ex + xb
@@ -167,19 +183,35 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, f, th):
                            (x, lap)], db_d, 3 * db_d,
                           width=max(1.2, db_d * 0.14))
         e.extend(arr)
-        e.append(Line((x, 0), (x, Hm - R), ir.L_ACERO,
-                      width=max(1.2, db_d * 0.14)))
-    # estribos en vista (máx. 10 trazos)
+        if shortened:
+            e.append(Line((x, 0), (x, seg), ir.L_ACERO,
+                          width=max(1.2, db_d * 0.14)))
+            e.append(Line((x, y_upper), (x, Hdraw - R), ir.L_ACERO,
+                          width=max(1.2, db_d * 0.14)))
+        else:
+            e.append(Line((x, 0), (x, Hdraw - R), ir.L_ACERO,
+                          width=max(1.2, db_d * 0.14)))
+    # estribos en vista: extremos representativos cuando existe rotura
     e_st = p["e_estribo"] * 10.0
-    niv = [50.0 + i * e_st for i in range(int((Hm - 60) / e_st) + 1)][:10]
+    niv = [50.0 + i * e_st for i in range(int((Hm - 60) / e_st) + 1)]
+    if shortened:
+        lower = [y for y in niv if y < seg - 10]
+        upper = [y_upper + (y - (Hm - seg)) for y in niv
+                 if y > Hm - seg + 10]
+        niv = lower + upper
+    elif len(niv) > 12:
+        niv = niv[:6] + niv[-6:]
     for y in niv:
         e.append(Line((ex - B / 2 + 3, y), (ex + B / 2 - 3, y), ir.L_ACERO))
     # ejes y nivel
-    e.append(line_x(ex, -hf - 30 * f, Hm + 30 * f))
+    e.append(line_x(ex, -hf - 30 * f, Hdraw + 30 * f))
     e.extend(level_symbol((ex - Wf / 2 - 25 * f, 0), th, "N.P."))
+    e.append(Text((ex, Hdraw + 72 * f), "ELEVACIÓN", 3.5 * f,
+                  layer=ir.L_TXT, ha="c", va="m"))
 
     # acotado
-    dbb.v_total(0, Hm, ex + B / 2, ex + B / 2 + 40 * f, ext_from=ex + B / 2)
+    dbb.v_total(0, Hdraw, ex + B / 2, ex + B / 2 + 40 * f,
+                txt=ir.fmt_mm(Hm), ext_from=ex + B / 2)
     dbb.v_total(0, lap, ex - B / 2, ex - B / 2 - 40 * f,
                 texts=[f"TR = {ir.fmt_m(lap)}"], ext_from=ex - B / 2)
     yb = -hf - 40 * f

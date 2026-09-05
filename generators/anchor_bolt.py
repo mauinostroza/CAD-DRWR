@@ -109,6 +109,8 @@ def build_anchor_bolt(p: dict) -> ir.Drawing:
     dh = float(p["d_perno"])
 
     draw_bolt_detail(d.ents, 0.0, 0.0, p, f, th)
+    d.ents.append(Text((0.0, float(p["P"]) + 90 * f), "DETALLE PERNO",
+                       3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
     w_conc = 14 * dh
 
     h_conc = float(p["Le"]) + 120.0

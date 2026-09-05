@@ -13,6 +13,7 @@ from core.ir import Line, Poly, Circle, Text
 from core.geom import hatch_poly, poly_bar, line_x
 from core.dims import DimBuilder
 from core.tables import cuadro_despiece, fila_barra, peso_barra
+from core.labels import rebar_spacing
 
 
 # ----------------------------------------------------------------- panel --
@@ -65,6 +66,8 @@ def build_slab(p: dict) -> ir.Drawing:
     # ejes de apoyos
     for xc in (-bw / 2, L + bw / 2):
         d.ents.append(line_x(xc, -hh - 25 * f, t + 30 * f))
+    d.ents.append(Text((L / 2, t + 105 * f), "SECCIÓN DE LOSA",
+                       3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
 
     # armadura inferior con ganchos
     yr = R + d1 / 2
@@ -107,18 +110,18 @@ def build_slab(p: dict) -> ir.Drawing:
 
     # ------------------------- etiquetas -------------------------
     d.ents.append(ir.Leader((L * 0.5, yr), (L * 0.5 - 60 * f, yr + 70 * f),
-                            f"Ø{d1:g} c/{ir.fmt_cm(s1)} m (INFERIOR)", th,
+                            rebar_spacing(d1, s1, "inferior"), th,
                             shelf=25 * f, side=-1))
     d.ents.append(ir.Leader((L * 0.75, yd), (L * 0.75 + 40 * f,
                                              yd - 70 * f),
-                            f"Ø{d2:g} c/{ir.fmt_cm(s2)} m (REPARTICIÓN)",
+                            rebar_spacing(d2, s2, "repartición"),
                             th, shelf=25 * f, side=1))
     if sup:
         d.ents.append(ir.Leader((L + bw / 2 - a * 0.5, t - R),
                                 (L + bw / 2 - a * 0.5 + 30 * f,
                                  t + 75 * f),
-                                f"Ø{d3:g} c/{ir.fmt_cm(p['s3'] * 10)} m "
-                                f"(SUPERIOR)", th, shelf=25 * f, side=1))
+                                rebar_spacing(d3, p["s3"] * 10, "superior"),
+                                th, shelf=25 * f, side=1))
 
     # ---------------------- cuadro de despiece ----------------------
     filas, total = [], 0.0

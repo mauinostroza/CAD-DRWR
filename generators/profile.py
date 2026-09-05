@@ -123,6 +123,8 @@ def build_profile(p: dict) -> ir.Drawing:
     # ejes
     d.ents.append(line_y(0, -BF / 2 - 40 * f, BF / 2 + 40 * f))
     d.ents.append(line_x(0, -D / 2 - 40 * f, D / 2 + 40 * f))
+    d.ents.append(Text((0, D / 2 + 90 * f), "SECCIÓN",
+                       3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
 
     # propiedades
     peso = A * 7850e-9 * 1000          # kg/m (A en mm²)

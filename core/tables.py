@@ -71,8 +71,8 @@ def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
         rows.append(celdas)
         if sketch:
             sketches[(i, 1)] = sketch
-    t = ir.Table(pos=pos, col_w=col_w, row_h=13.0 * f, header=COLS,
-                 rows=rows, title=title, h_row=6.0 * f, sketches=sketches)
+    t = ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=COLS,
+                 rows=rows, title=title, h_row=5.0 * f, sketches=sketches)
     if total_kg is not None:
         blank = [""] * (len(COLS) - 1)
         rows.append(blank + [f"Σ {total_kg:.1f}"])
@@ -83,6 +83,6 @@ def tabla_pernos(pos, f: float, datos, title="CUADRO DE PERNOS DE ANCLAJE"):
     """datos: lista de listas de texto. Encabezados fijos."""
     headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY.\n(mm)", "MATERIAL",
                "TUERCA /\nARANDELA"]
-    col_w = [w * f for w in [20, 22, 30, 26, 34, 46]]
-    return ir.Table(pos=pos, col_w=col_w, row_h=13.0 * f, header=headers,
-                    rows=datos, title=title, h_row=6.0 * f)
+    col_w = [w * f for w in [20, 24, 34, 30, 38, 56]]
+    return ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=headers,
+                    rows=datos, title=title, h_row=5.0 * f)

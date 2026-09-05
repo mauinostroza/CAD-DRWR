@@ -101,11 +101,16 @@ def build_base_plate(p: dict) -> ir.Drawing:
     # ============================ PLANTA ============================
     _planta(d, db, p, B, N, BF, D, TW, TF, dh, g, pp, r_h, n, ys_rows,
             cart, ls, ts, f, th)
+    d.ents.append(Text((0, N / 2 + 105 * f), "PLANTA", 3.5 * f,
+                       layer=ir.L_TXT, ha="c", va="m"))
 
     # ========================== ELEVACIÓN ===========================
     ex = B / 2.0 + 150.0 * f + N / 2.0          # centro de la elevación
     _elevacion(d, db, p, ex, B, N, BF, D, TW, t, dh, g, pp, P, ys_rows,
                cart, hs, ls, ts, w_sold, f, th)
+    d.ents.append(Text((ex, max(20 + t + 1.7 * D, P) + 70 * f),
+                       "ELEVACIÓN", 3.5 * f, layer=ir.L_TXT,
+                       ha="c", va="m"))
 
     # ======================= DETALLE DEL PERNO ======================
     x_end = ex + N / 2.0 + 90.0 * f
@@ -113,6 +118,8 @@ def build_base_plate(p: dict) -> ir.Drawing:
         from .anchor_bolt import draw_bolt_detail
         dx = x_end + 90.0 * f + 8 * dh
         draw_bolt_detail(d.ents, dx, 0.0, p, f, th)
+        d.ents.append(Text((dx, P + 90 * f), "DETALLE PERNO",
+                           3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
         x_end = dx + 10 * dh
 
     # ======================= CUADRO DE PERNOS =======================
