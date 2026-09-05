@@ -14,6 +14,7 @@ from ezdxf.enums import TextEntityAlignment
 from core import ir
 from core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
                      Table, Drawing)
+from core.dims import uses_outside_arrows
 
 _AL = {"l": 0, "c": 1, "r": 2}
 _VA = {"b": 1, "m": 2, "t": 3}
@@ -65,6 +66,8 @@ def write_dxf(dwg: Drawing, path: str) -> None:
             "dimexo": 0.30 * th, "dimgap": 0.35 * th, "dimtad": 1,
             "dimjust": 0, "dimdec": 0, "dimzin": 8, "dimlunit": 2,
             "dimtxsty": "ING", "dimscale": 1.0,
+            # Mantiene la línea entre puntos cuando texto/flechas salen.
+            "dimtofl": 1, "dimsoxd": 0,
         })
 
     for e in dwg.ents:
@@ -128,9 +131,14 @@ def _write_ent(msp, e) -> None:
     elif isinstance(e, Dim):
         ang = 90.0 if e.vertical else 0.0
         dxf = {"layer": e.layer}
+        override = None
+        if uses_outside_arrows(e, _dimension_text_height(msp)):
+            # DIMATFIT=1 prioriza flechas exteriores y conserva texto legible.
+            override = {"dimatfit": 1}
         dim = msp.add_linear_dim(base=e.base, p1=e.p1, p2=e.p2, angle=ang,
                                  text=e.txt if e.txt else "<>",
-                                 dimstyle="ING", dxfattribs=dxf)
+                                 dimstyle="ING", override=override,
+                                 dxfattribs=dxf)
         dim.render()
 
     elif isinstance(e, Leader):
@@ -150,6 +158,14 @@ def _write_ent(msp, e) -> None:
 
     else:
         raise TypeError(f"Entidad IR no soportada: {type(e)}")
+
+
+def _dimension_text_height(msp) -> float:
+    """Altura efectiva del estilo ING sin depender de estado global."""
+    try:
+        return float(msp.doc.dimstyles.get("ING").dxf.dimtxt)
+    except (AttributeError, TypeError, ValueError):
+        return 3.0
 
 
 def _solid_circle(msp, c, r, layer):
