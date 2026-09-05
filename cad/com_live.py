@@ -236,6 +236,11 @@ def _dim(msp, e, VPT):
             dim.TextString = e.txt
         except Exception:
             pass
+    # Fuerza la línea entre puntos cuando AutoCAD desplaza flechas/texto.
+    try:
+        dim.Fit = 1
+    except Exception:
+        pass
     return dim
 
 
