@@ -16,6 +16,15 @@ AR_K = 0.85      # tamaño de flecha respecto a la altura de texto
 OFF_K = 0.70     # separación del texto sobre la línea de cota
 
 
+def uses_outside_arrows(d: Dim, th: float) -> bool:
+    """Indica si una cota no tiene espacio para texto y flechas interiores."""
+    span = (abs(d.p2[1] - d.p1[1]) if d.vertical
+            else abs(d.p2[0] - d.p1[0]))
+    txt = d.txt or ir.fmt_mm(span)
+    asz = AR_K * th
+    return span < max(2.4 * asz, 0.68 * th * len(txt) + asz)
+
+
 class DimBuilder:
     def __init__(self, ents: list, th: float):
         """th: altura de texto de cota EN MODELO (mm), ya escalada."""
@@ -89,7 +98,7 @@ def dim_parts(d: Dim, th: float) -> list:
             out.append(Line((x, y + sgn * g0), (x, y_dim + sgn * ov), ir.L_ACOT))
         x1, x2 = p1[0], p2[0]
         txt = d.txt if d.txt else ir.fmt_mm(abs(x2 - x1))
-        outside = abs(x2 - x1) < max(2.4 * asz, 0.68 * th * len(txt) + asz)
+        outside = uses_outside_arrows(d, th)
         if outside:
             out.append(Line((x1 - 1.8 * asz, y_dim),
                             (x2 + 1.8 * asz, y_dim), ir.L_ACOT))
@@ -109,7 +118,7 @@ def dim_parts(d: Dim, th: float) -> list:
             out.append(Line((x + sgn * g0, y), (x_dim + sgn * ov, y), ir.L_ACOT))
         y1, y2 = p1[1], p2[1]
         txt = d.txt if d.txt else ir.fmt_mm(abs(y2 - y1))
-        outside = abs(y2 - y1) < max(2.4 * asz, 0.68 * th * len(txt) + asz)
+        outside = uses_outside_arrows(d, th)
         if outside:
             out.append(Line((x_dim, y1 - 1.8 * asz),
                             (x_dim, y2 + 1.8 * asz), ir.L_ACOT))
