@@ -120,22 +120,60 @@ def _pedir_get_point(doc, mensaje, pythoncom):
             raise
 
 
-def _traer_al_frente(app):
+def traer_al_frente(app):
     """Fuerza que la ventana del CAD pase al primer plano REAL de Windows
     (z-order + foco de input), no solo "visible". `Visible=True`,
     `WindowState` y `Activate()` (COM) pueden dejar la ventana visible
-    pero sin foco real si otra ventana (p.ej. la nuestra, recién
-    minimizada) seguía teniendo el foco un instante antes — en ese caso
-    el clic de `GetPoint` puede no llegar nunca al CAD. `HWnd` es una
+    pero sin foco real si otra ventana (p.ej. la nuestra, ya minimizada)
+    dejó de tenerlo un instante antes.
+
+    Un `SetForegroundWindow` simple NO alcanza en ese caso: Windows solo
+    deja que un proceso le robe el foco a otra ventana si el proceso
+    llamante actualmente TIENE el foco (o lo tuvo hace muy poco) — si ya
+    nos minimizamos, la llamada puede ser denegada en silencio (no lanza
+    excepción, simplemente no hace nada), y entonces `GetPoint` puede
+    fallar con RPC_E_SERVERFAULT de forma repetible (no es un race
+    transitorio, así que reintentar sin más no lo arregla).
+
+    El truco estándar de automatización Win32 para esto es adjuntar
+    temporalmente la cola de input de nuestro hilo a la del hilo dueño de
+    la ventana en primer plano y a la del hilo dueño de la ventana del
+    CAD (`AttachThreadInput`) — mientras están adjuntas, Windows sí deja
+    que cualquiera de los hilos "unidos" fuerce el foco. `HWnd` es una
     propiedad estándar de `Application` en AutoCAD, replicada por ZWCAD
-    (API COM compatible, ver docstring del módulo)."""
+    (API COM compatible, ver docstring del módulo).
+
+    Llamar esto ANTES de minimizar la ventana propia (además de, otra
+    vez, justo antes de `GetPoint`) es lo que realmente corrige el
+    problema — ver `pedir_punto` y `app/main_window.py::send_com`."""
     try:
+        import win32api
         import win32con
         import win32gui
+        import win32process
         hwnd = int(app.HWnd)
         if win32gui.IsIconic(hwnd):
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        win32gui.SetForegroundWindow(hwnd)
+        actual = win32api.GetCurrentThreadId()
+        frente = win32gui.GetForegroundWindow()
+        hilo_frente = (win32process.GetWindowThreadProcessId(frente)[0]
+                      if frente else 0)
+        hilo_destino = win32process.GetWindowThreadProcessId(hwnd)[0]
+        adj_frente = adj_destino = False
+        try:
+            if hilo_frente and hilo_frente != actual:
+                adj_frente = win32process.AttachThreadInput(
+                    actual, hilo_frente, True)
+            if hilo_destino and hilo_destino != actual:
+                adj_destino = win32process.AttachThreadInput(
+                    actual, hilo_destino, True)
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetForegroundWindow(hwnd)
+        finally:
+            if adj_frente:
+                win32process.AttachThreadInput(actual, hilo_frente, False)
+            if adj_destino:
+                win32process.AttachThreadInput(actual, hilo_destino, False)
     except Exception:
         pass  # best-effort: ya se intentó Visible/WindowState/Activate antes
 
@@ -518,7 +556,7 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
             doc.Activate()
         except Exception:
             pass
-        _traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
+        traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
         _asentar_mensajes(pythoncom)   # deja procesar la activación de la ventana
         try:
             pt = _pedir_get_point(doc, mensaje, pythoncom)

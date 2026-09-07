@@ -189,6 +189,33 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Conexión COM",
                                 f"CAD detectado correctamente:\n{info}")
 
+    def _pedir_punto_con_reintento(self, app, doc):
+        """Pide el punto de inserción; si falla por RPC_E_SERVERFAULT
+        (el CAD no aceptó el foco forzado automáticamente — puede pasar
+        en algunos entornos/versiones de Windows pese a AttachThreadInput),
+        ofrece un último recurso: que el usuario cambie manualmente a la
+        ventana del CAD (Alt+Tab) y confirme, momento en el que el CAD sí
+        es el foco real (acción directa del usuario, que Windows siempre
+        permite). Devuelve el punto, o None si el usuario cancela."""
+        try:
+            return com_live.pedir_punto(app=app, doc=doc)
+        except RuntimeError as exc:
+            if "RPC_E_SERVERFAULT" not in str(exc) and \
+                    "-2147417851" not in str(exc):
+                raise
+        # Reintento manual: el usuario cambia de ventana él mismo.
+        self.showNormal()
+        resp = QMessageBox.question(
+            self, "Enviar a CAD (COM)",
+            "El CAD no aceptó el punto de forma automática.\n\n"
+            "Cambie manualmente a la ventana de ZWCAD/AutoCAD (Alt+Tab) "
+            "y presione Reintentar para hacer clic ahí.",
+            QMessageBox.Retry | QMessageBox.Cancel, QMessageBox.Retry)
+        if resp != QMessageBox.Retry:
+            return None
+        self.showMinimized()
+        return com_live.pedir_punto(app=app, doc=doc)
+
     def send_com(self):
         """Dibuja el detalle actual directamente en el CAD abierto (COM)."""
         m, panel = self.current()
@@ -222,13 +249,19 @@ class MainWindow(QMainWindow):
 
         origen = None
         if self.a_pick.isChecked():
+            # Forzar el foco del CAD ANTES de minimizar la ventana propia:
+            # una vez minimizada, Windows puede denegar en silencio que
+            # nuestro proceso (ya en segundo plano) le robe el foco a otra
+            # ventana — hacerlo mientras todavía somos la ventana activa
+            # es lo que realmente evita el RPC_E_SERVERFAULT de GetPoint.
+            com_live.traer_al_frente(app)
             self.statusBar().showMessage(
                 "Haga clic en la ventana de ZWCAD/AutoCAD para ubicar el "
                 "dibujo (Esc para cancelar)…")
             QApplication.processEvents()
             self.showMinimized()
             try:
-                origen = com_live.pedir_punto(app=app, doc=doc)
+                origen = self._pedir_punto_con_reintento(app, doc)
             except RuntimeError as exc:
                 self.showNormal()
                 self.statusBar().showMessage(str(exc))
@@ -239,6 +272,9 @@ class MainWindow(QMainWindow):
                                      f"No se pudo pedir el punto:\n{exc}")
                 return
             self.showNormal()
+            if origen is None:
+                self.statusBar().showMessage("Envío cancelado.")
+                return
 
         progreso = QProgressDialog("Enviando dibujo a CAD…", None, 0, 100, self)
         progreso.setWindowTitle("Enviar a CAD (COM)")
