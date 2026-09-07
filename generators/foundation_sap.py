@@ -9,9 +9,10 @@ separado (`cad.sap2000_link.leer_fundacion`) a una "zapata" con su
 contorno exterior único (solo esquinas reales), el espesor de cada shell
 y los pedestales (columnas) detectados sobre ella.
 
-Se dibuja una planta y una elevación (corte real, no bounding-box) por
-cada zapata, dispuestas en grilla sin traslape; las elevaciones se ubican
-en una fila aparte, lejos de las plantas.
+Cada zapata se dibuja en planta en su posición real dentro del modelo
+(sin recolocarla), y con dos elevaciones (corte real, no bounding-box) —
+una perpendicular a X y otra a Y, "sus dos lados" — dispuestas en una
+fila aparte, lejos de las plantas y sin traslape entre ellas.
 
 A diferencia de los demás módulos, el panel no es un formulario estático
 (SpecPanel): el flujo es interactivo (conectar -> elegir grupo), así que
@@ -31,8 +32,8 @@ from core.ir import Poly, Text
 from core.geom import corte_poligono, level_symbol
 from core.dims import DimBuilder
 
-GAP_PLANTA = 250.0     # mm (sin escalar) entre plantas vecinas
-GAP_ELEV = 200.0       # mm entre elevaciones vecinas
+GAP_ELEV = 200.0       # mm entre las 2 elevaciones (ejeX/ejeY) de una zapata
+GAP_FILA_ZAPATA = 300.0    # mm entre el par de elevaciones de zapatas vecinas
 GAP_FILA = 400.0       # mm entre la fila de plantas y la fila de elevaciones
 ALTO_ARRANQUE_COL = 300.0   # mm, tramo de columna dibujado sobre la zapata
 
@@ -67,16 +68,6 @@ class FoundationSapPanel(QWidget):
         self.cb_fundacion.currentTextChanged.connect(self._fundacion_changed)
         form.addRow("Grupo SAP2000", self.cb_fundacion)
 
-        self.cb_eje = QComboBox()
-        self.cb_eje.addItems(["X", "Y"])
-        self.cb_eje.setToolTip(
-            "Dirección de corte de la elevación, aplicada a todas las "
-            "zapatas del grupo. La posición del corte es automática: pasa "
-            "por el pedestal de cada zapata, o por su centroide si no "
-            "tiene pedestal detectado.")
-        self.cb_eje.currentTextChanged.connect(self._changed)
-        form.addRow("Corte perpendicular a", self.cb_eje)
-
         self.sp_espesor = QDoubleSpinBox()
         self.sp_espesor.setRange(0, 5000)
         self.sp_espesor.setDecimals(0)
@@ -96,7 +87,7 @@ class FoundationSapPanel(QWidget):
 
     # ------------------------------------------------------------ acciones --
     def _set_controles_habilitados(self, on: bool):
-        for w in (self.cb_fundacion, self.cb_eje, self.sp_espesor):
+        for w in (self.cb_fundacion, self.sp_espesor):
             w.setEnabled(on)
 
     def _conectar(self):
@@ -178,7 +169,6 @@ class FoundationSapPanel(QWidget):
             "_escala": factor_escala(self.cb_escala.currentText()),
             "escala": self.cb_escala.currentText(),
             "fundacion": self.cb_fundacion.currentText(),
-            "eje_corte": self.cb_eje.currentText(),
             "espesor_default": self.sp_espesor.value(),
             "_geom": geom.to_dict() if geom is not None else None,
         }
@@ -194,8 +184,6 @@ class FoundationSapPanel(QWidget):
             self.cb_fundacion.setCurrentText(geom.nombre)
             self.cb_fundacion.blockSignals(False)
             self._set_controles_habilitados(True)
-        if "eje_corte" in p:
-            self.cb_eje.setCurrentText(str(p["eje_corte"]))
         if "escala" in p:
             self.cb_escala.setCurrentText(str(p["escala"]))
         if "espesor_default" in p:
@@ -222,23 +210,22 @@ def _dibujar_pedestal(d, pos, pedestal, f, layer=ir.L_ACERO):
     d.ents.append(Text((cx, cy), etiqueta, 2.0 * f, 0, ir.L_TXT, "c", "m"))
 
 
-def _dibujar_zapata_planta(d, db, zapata, offset_x, f, th):
-    x0, x1, y0, y1 = _bbox(zapata["contorno"])
-    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-
-    def loc(pt):
-        return (pt[0] - cx + offset_x, pt[1] - cy)
-
-    contorno_local = [loc(p) for p in zapata["contorno"]]
-    d.ents.append(Poly(contorno_local, closed=True, layer=ir.L_CONC))
+def _dibujar_zapata_planta(d, db, zapata, f, th):
+    """Dibuja la zapata en su posición real (coordenadas globales del
+    modelo, sin recentrar ni trasladar). Devuelve el y mínimo alcanzado
+    por su dibujo (contorno + acotado + rótulo), para saber dónde
+    empieza, lejos de todas las plantas, la fila de elevaciones."""
+    contorno = [(p[0], p[1]) for p in zapata["contorno"]]
+    d.ents.append(Poly(contorno, closed=True, layer=ir.L_CONC))
 
     for pedestal in zapata["pedestales"]:
-        _dibujar_pedestal(d, loc(pedestal["centro"]), pedestal, f)
+        _dibujar_pedestal(d, pedestal["centro"], pedestal, f)
 
-    xs_l = sorted(set(round(p[0], 1) for p in contorno_local))
-    ys_l = sorted(set(round(p[1], 1) for p in contorno_local))
+    xs_l = sorted(set(round(p[0], 1) for p in contorno))
+    ys_l = sorted(set(round(p[1], 1) for p in contorno))
     lx0, lx1 = xs_l[0], xs_l[-1]
     ly0, ly1 = ys_l[0], ys_l[-1]
+    cx = (lx0 + lx1) / 2.0
 
     y_dim1 = ly0 - 30 * f
     if len(xs_l) > 2:
@@ -251,15 +238,23 @@ def _dibujar_zapata_planta(d, db, zapata, offset_x, f, th):
         x_dim1 += 30 * f
     db.v_total(ly0, ly1, lx1, x_dim1, ext_from=lx1)
 
-    d.ents.append(Text((offset_x, ly0 - 90 * f), zapata["nombre"], 3.5 * f,
+    y_label = y_dim1 - 60 * f
+    d.ents.append(Text((cx, y_label), zapata["nombre"], 3.5 * f,
                        0, ir.L_TXT, "c", "m"))
-    return x1 - x0, y1 - y0, ly0 - 90 * f - 15 * f
+    return y_label - 15 * f
 
 
 def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
                               espesor_default):
+    """Dibuja UNA elevación (corte real perpendicular a `eje`) de la
+    zapata, aislada de todo lo demás (solo usa los shells propios de esa
+    zapata). Devuelve (x_min_usado, x_max_usado, esp_max): el rango real
+    de X ocupado por TODO lo dibujado (cortes, arranques de columna,
+    cota y rótulo), para que el llamador pueda ubicar la siguiente
+    elevación sin traslape."""
     x0, x1, y0, y1 = _bbox(zapata["contorno"])
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    titulo = f"{zapata['nombre']} — CORTE EJE {'X' if eje == 'x' else 'Y'}"
 
     if zapata["pedestales"]:
         px = sum(p["centro"][0] for p in zapata["pedestales"]) / \
@@ -283,10 +278,11 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
         return offset_x + (t - centro_transv)
 
     if not tramos:
-        d.ents.append(Text((offset_x, y0_off), f"{zapata['nombre']}: EL "
-                           "CORTE AUTOMÁTICO NO ATRAVIESA NINGÚN SHELL",
-                           2.5 * f, 0, ir.L_TXT, "c", "m"))
-        return 0.0, 0.0
+        d.ents.append(Text((offset_x, y0_off),
+                           f"{titulo}: EL CORTE AUTOMÁTICO NO ATRAVIESA "
+                           "NINGÚN SHELL", 2.5 * f, 0, ir.L_TXT, "c", "m"))
+        ancho_txt = 0.6 * 2.5 * f * len(titulo) / 2.0
+        return offset_x - ancho_txt, offset_x + ancho_txt, 0.0
 
     esp_max = max(t[2] for t in tramos)
     for t0, t1, esp in tramos:
@@ -295,6 +291,9 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
 
     t_min = min(t[0] for t in tramos)
     t_max = max(t[1] for t in tramos)
+    x_min_usado = loc_t(t_min) - 25 * f    # símbolo de nivel a la izquierda
+    x_max_usado = loc_t(t_max)
+
     d.ents.extend(level_symbol((loc_t(t_min) - 25 * f, y0_off), th,
                                "N.P. ±0.00"))
 
@@ -308,22 +307,28 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
         xb = loc_t(centro_ped) + ancho_ped / 2.0
         d.ents.append(ir.rect(xa, y0_off, xb, y0_off + alto_col,
                               ir.L_ACERO))
+        x_min_usado = min(x_min_usado, xa)
+        x_max_usado = max(x_max_usado, xb)
 
     y_dim2 = y0_off - esp_max - 30 * f
     db.h_total(loc_t(t_min), loc_t(t_max), y0_off - esp_max, y_dim2,
               ext_from=y0_off - esp_max)
-    db.v_total(y0_off - esp_max, y0_off, loc_t(t_max), loc_t(t_max) + 30 * f,
+    x_cota_v = loc_t(t_max) + 30 * f
+    db.v_total(y0_off - esp_max, y0_off, loc_t(t_max), x_cota_v,
               ext_from=loc_t(t_max))
+    x_max_usado = max(x_max_usado, x_cota_v + 15 * f)
 
     nombres_sec = ", ".join(sorted({a["seccion"] for a in zapata["areas"]
                                     if a["seccion"]}))
+    rotulo = titulo + (f"  -  SEC. {nombres_sec}" if nombres_sec else "")
     d.ents.append(Text(
-        (offset_x, y0_off - esp_max - 60 * f),
-        f"{zapata['nombre']}" + (f"  -  SEC. {nombres_sec}"
-                                 if nombres_sec else ""),
-        3.0 * f, 0, ir.L_TXT, "c", "m"))
+        (offset_x, y0_off - esp_max - 60 * f), rotulo, 2.5 * f,
+        0, ir.L_TXT, "c", "m"))
+    ancho_rotulo = 0.6 * 2.5 * f * len(rotulo) / 2.0
+    x_min_usado = min(x_min_usado, offset_x - ancho_rotulo)
+    x_max_usado = max(x_max_usado, offset_x + ancho_rotulo)
 
-    return (t_max - t_min), esp_max
+    return x_min_usado, x_max_usado, esp_max
 
 
 # -------------------------------------------------------------- generador --
@@ -338,28 +343,40 @@ def build_foundation(p: dict) -> ir.Drawing:
     th = 3.0 * f
     d = ir.Drawing()
     db = DimBuilder(d.ents, th)
-    eje = "x" if p.get("eje_corte", "X") == "X" else "y"
     espesor_default = p.get("espesor_default", 0.0)
 
-    # ============================ PLANTAS ============================
-    cursor_x = 0.0
+    # ===================== PLANTAS (posición real) =====================
+    # Cada zapata se dibuja en sus coordenadas reales del modelo, sin
+    # recolocarla: conservan su posición relativa unas con otras.
     y_min_plantas = 0.0
     for zapata in zapatas:
-        x0, x1, y0, y1 = _bbox(zapata["contorno"])
-        ancho = x1 - x0
-        offset_x = cursor_x + ancho / 2.0
-        _, alto, y_bottom = _dibujar_zapata_planta(d, db, zapata, offset_x,
-                                                    f, th)
+        y_bottom = _dibujar_zapata_planta(d, db, zapata, f, th)
         y_min_plantas = min(y_min_plantas, y_bottom)
-        cursor_x += ancho + GAP_PLANTA * f
 
     # ========================== ELEVACIONES ===========================
+    # Fila aparte, lejos de todas las plantas. Dos elevaciones por zapata
+    # (corte eje X y corte eje Y, "sus dos lados"), cada una aislada del
+    # resto y sin traslape entre bloques (el ancho de avance del cursor
+    # es el rango real de X que ocupó cada elevación, no una estimación).
     y_fila_elev = y_min_plantas - GAP_FILA * f
     cursor_x = 0.0
     for zapata in zapatas:
-        ancho_corte, esp = _dibujar_zapata_elevacion(
-            d, db, zapata, eje, cursor_x, y_fila_elev, f, th,
-            espesor_default)
-        cursor_x += max(ancho_corte, 1.0) + GAP_ELEV * f
+        for eje in ("x", "y"):
+            inicio = len(d.ents)
+            x_min, x_max, esp = _dibujar_zapata_elevacion(
+                d, db, zapata, eje, cursor_x, y_fila_elev, f, th,
+                espesor_default)
+            # El dibujo queda centrado en cursor_x (no alineado a su
+            # borde izquierdo) — se traslada lo recién agregado para que
+            # su borde izquierdo real (x_min) coincida con cursor_x,
+            # garantizando que no invada el bloque anterior.
+            shift = cursor_x - x_min
+            if abs(shift) > 1e-6:
+                bloque = ir.translate(ir.Drawing(ents=d.ents[inicio:]),
+                                      shift, 0.0)
+                d.ents[inicio:] = bloque.ents
+                x_max += shift
+            cursor_x = x_max + GAP_ELEV * f
+        cursor_x += GAP_FILA_ZAPATA * f
 
     return d

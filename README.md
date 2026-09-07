@@ -89,7 +89,7 @@ La geometría no cambia.
 | **Perno de Anclaje** | Detalle de perno tipo L (codo 90°), J (gancho 135°) o recto con placa de anclaje: rosca, tuerca, arandela, concreto, N.P. y cuadro de pernos. |
 | **Perfil Estructural** | Secciones I/W, H (HEA), canal C, ángulo L, T y caja HSS con acotado completo, ejes y propiedades aproximadas (área y peso lineal). Series comerciales W/HE precargadas. |
 | **Forma de Barra** | Barras recta, L 90°, U, estribo cerrado 135° y Z, con radios de doblez reales (R = k·Ø), desarrollo calculado y fila de despiece. |
-| **Fundación SAP2000** | Planta con el contorno real de los shells de una fundación (leída de un modelo SAP2000 abierto) y su espesor asignado, acotada, + elevación como corte real de la geometría según el eje y posición elegidos. Ver sección 8. |
+| **Fundación SAP2000** | Plantas en su posición real (leídas de un modelo SAP2000 abierto), contorno único por fundación, pedestales reales y dos elevaciones (corte real X/Y) por fundación, automáticas y sin traslape. Ver sección 8. |
 
 Las elevaciones altas de pedestales se presentan con una rotura gráfica
 convencional: la geometría se mantiene legible y la cota indica siempre la
@@ -219,15 +219,21 @@ shells de área) para dibujarlas automáticamente:
      la fundación —incluso en un nodo interior de la malla, no solo en
      sus esquinas—, se dibuja con su dimensión real (rectangular o
      circular, leída de la sección del frame) en su posición exacta.
-   - **Elevación individual**: corte real de la geometría (no un simple
-     bounding-box) en la dirección elegida (**Corte perpendicular a**
-     X/Y, aplicada a todas las fundaciones del dibujo), pasando
-     automáticamente por el pedestal de esa fundación o, si no tiene, por
-     su centroide. En fundaciones combinadas o con espesor escalonado, el
-     corte puede generar más de un tramo.
-   - Todas las plantas se disponen una junto a otra sin traslaparse; las
+   - **Dos elevaciones individuales** por fundación, "sus dos lados":
+     corte real de la geometría (no un simple bounding-box) perpendicular
+     a X y perpendicular a Y, pasando automáticamente por el pedestal de
+     esa fundación o, si no tiene, por su centroide. En fundaciones
+     combinadas o con espesor escalonado, el corte puede generar más de
+     un tramo. Cada elevación queda rotulada ("NOMBRE — CORTE EJE X/Y")
+     y dibujada de forma aislada, como si esa fundación estuviera sola en
+     el espacio: solo se cortan sus propios shells, nada de otras
+     fundaciones se interpone.
+   - Las plantas se dibujan en su **posición real** dentro del modelo
+     (misma disposición relativa que en SAP2000, sin recolocarlas); las
      elevaciones se dibujan en una fila aparte, bien alejada de las
-     plantas, también sin traslaparse entre sí.
+     plantas, con las dos elevaciones de cada fundación juntas y un
+     espacio mayor entre los pares de fundaciones distintas, sin
+     traslaparse entre sí.
 4. Exporte a DXF o envíe a ZWCAD/AutoCAD igual que cualquier otro módulo.
 
 Supuesto de dibujo: la cota Z de los joints del shell se toma como el
