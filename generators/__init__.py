@@ -9,6 +9,7 @@ from .slab import SlabPanel, build_slab
 from .anchor_bolt import AnchorBoltPanel, build_anchor_bolt
 from .profile import ProfilePanel, build_profile
 from .bar_shape import BarShapePanel, build_bar_shape
+from .foundation_sap import FoundationSapPanel, build_foundation
 
 Module = namedtuple("Module", "nombre prefix panel builder")
 
@@ -20,4 +21,6 @@ MODULES = [
            build_anchor_bolt),
     Module("Perfil Estructural", "perfil", ProfilePanel, build_profile),
     Module("Forma de Barra", "forma_barra", BarShapePanel, build_bar_shape),
+    Module("Fundación SAP2000", "fundacion_sap", FoundationSapPanel,
+           build_foundation),
 ]
