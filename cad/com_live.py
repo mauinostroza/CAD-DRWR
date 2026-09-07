@@ -19,6 +19,8 @@ imports de win32 están dentro de las funciones.
 
 import math
 import os
+import random
+import time
 
 from core import ir
 from core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
@@ -118,6 +120,74 @@ def _pedir_get_point(doc, mensaje, pythoncom):
                 _asentar_mensajes(pythoncom)
                 continue
             raise
+
+
+def _pedir_punto_por_comando(doc, mensaje, pythoncom,
+                              tiempo_maximo: float = 600.0):
+    """Pide un punto mediante el *command loop* propio del CAD.
+
+    ``Utility.GetPoint`` es una llamada COM interactiva. En algunas
+    versiones de ZWCAD ésta falla con ``RPC_E_SERVERFAULT`` cuando el
+    proceso llamante acaba de minimizar su ventana, aunque ZWCAD esté
+    correctamente conectado. En vez de cruzar ese límite COM, se envía una
+    pequeña expresión AutoLISP: el propio CAD muestra el prompt y recibe el
+    clic. El resultado se devuelve por variables de usuario y se consulta
+    por COM sólo después de que el comando haya terminado.
+
+    AutoCAD, ZWCAD y BricsCAD exponen ``SendCommand`` y AutoLISP, por lo que
+    este camino no depende del foco que tenga la aplicación Python durante
+    el clic. Las variables se restauran siempre al finalizar.
+    """
+    try:
+        anteriores = tuple(float(doc.GetVariable(nombre))
+                            for nombre in ("USERR1", "USERR2", "USERR3"))
+    except Exception as exc:
+        raise RuntimeError(
+            "El CAD no permite preparar la selección de punto por comando: "
+            f"{exc}") from exc
+
+    # Marcador distinto de cero: positivo = esperando, negativo = éxito,
+    # cero = el usuario canceló con Esc. Se evita 0 porque es el estado que
+    # deja explícitamente la rama de cancelación del comando.
+    marcador = random.randint(100_000, 900_000)
+    texto = mensaje.replace('"', "'").replace("\\", "/")
+    comando = (
+        '(progn '
+        f'(setvar "USERR3" {marcador}) '
+        f'(setq CADDRWR_P (getpoint "\\n{texto}")) '
+        '(if CADDRWR_P '
+        f'  (progn (setvar "USERR1" (car CADDRWR_P)) '
+        f'         (setvar "USERR2" (cadr CADDRWR_P)) '
+        f'         (setvar "USERR3" {-marcador})) '
+        '  (setvar "USERR3" 0)) '
+        '(princ)) '
+    )
+    try:
+        # El espacio final entrega la expresión al command loop. SendCommand
+        # retorna de inmediato al requerir interacción del usuario.
+        doc.SendCommand(comando)
+        fin = time.monotonic() + tiempo_maximo
+        while time.monotonic() < fin:
+            try:
+                pythoncom.PumpWaitingMessages()
+            except Exception:
+                pass
+            estado = float(doc.GetVariable("USERR3"))
+            if estado == -marcador:
+                return (float(doc.GetVariable("USERR1")),
+                        float(doc.GetVariable("USERR2")))
+            if estado == 0:
+                raise RuntimeError("Selección de punto cancelada.")
+            time.sleep(0.05)
+        raise RuntimeError(
+            "El CAD no terminó la selección de punto. Presione Esc en el "
+            "CAD y vuelva a intentarlo.")
+    finally:
+        for nombre, valor in zip(("USERR1", "USERR2", "USERR3"), anteriores):
+            try:
+                doc.SetVariable(nombre, valor)
+            except Exception:
+                pass
 
 
 def traer_al_frente(app):
@@ -559,18 +629,16 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
         traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
         _asentar_mensajes(pythoncom)   # deja procesar la activación de la ventana
         try:
-            pt = _pedir_get_point(doc, mensaje, pythoncom)
+            # No usar Utility.GetPoint aquí. En ZWCAD puede lanzar
+            # RPC_E_SERVERFAULT al entrar en modo interactivo desde COM; el
+            # command loop nativo sí recibe el clic de forma estable.
+            pt = _pedir_punto_por_comando(doc, mensaje, pythoncom)
+        except RuntimeError:
+            raise
         except Exception as exc:
-            hresult = exc.args[0] if getattr(exc, "args", None) else None
-            pista = ""
-            if hresult == _RPC_E_SERVERFAULT:
-                pista = (" (el CAD no llegó a iniciar el punto interactivo "
-                         "justo después de cambiar el foco de la ventana "
-                         "— intente de nuevo o haga clic manualmente en la "
-                         "ventana del CAD antes de repetir el envío)")
             raise RuntimeError(
-                "No se obtuvo el punto (¿se canceló con Esc, o falló la "
-                f"conexión con el CAD?): {exc}{pista}")
+                "No se pudo iniciar la selección de punto en el CAD: "
+                f"{exc}") from exc
         if not isinstance(pt, (list, tuple)) or len(pt) < 2:
             raise RuntimeError(
                 f"El CAD devolvió un punto con formato inesperado: {pt!r}")
