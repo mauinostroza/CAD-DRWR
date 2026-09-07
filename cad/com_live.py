@@ -85,6 +85,41 @@ def documento_activo(app):
     return _documento(app)
 
 
+_RPC_E_SERVERFAULT = -2147417851  # 0x80010105: "El servidor lanzó una excepción"
+
+
+def _asentar_mensajes(pythoncom, segundos: float = 0.35):
+    """Bombea mensajes COM/Windows pendientes brevemente. Necesario porque
+    `Utility.GetPoint` (interactivo) puede fallar con RPC_E_SERVERFAULT si
+    se llama inmediatamente después de forzar el foco/activación de la
+    ventana del CAD, antes de que su propio message loop procese esos
+    cambios (activación, repintado)."""
+    import time
+    fin = time.monotonic() + segundos
+    while time.monotonic() < fin:
+        try:
+            pythoncom.PumpWaitingMessages()
+        except Exception:
+            pass
+        time.sleep(0.02)
+
+
+def _pedir_get_point(doc, mensaje, pythoncom):
+    """Llama a `Utility.GetPoint`, reintentando UNA vez si el fallo es
+    específicamente RPC_E_SERVERFAULT (fallo transitorio conocido al
+    invocar un método interactivo justo después de cambiar el foco de
+    la ventana — se le da tiempo a asentarse y se reintenta)."""
+    for intento in range(2):
+        try:
+            return doc.Utility.GetPoint(None, mensaje)
+        except Exception as exc:
+            hresult = exc.args[0] if getattr(exc, "args", None) else None
+            if intento == 0 and hresult == _RPC_E_SERVERFAULT:
+                _asentar_mensajes(pythoncom)
+                continue
+            raise
+
+
 def _traer_al_frente(app):
     """Fuerza que la ventana del CAD pase al primer plano REAL de Windows
     (z-order + foco de input), no solo "visible". `Visible=True`,
@@ -484,12 +519,20 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
         except Exception:
             pass
         _traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
+        _asentar_mensajes(pythoncom)   # deja procesar la activación de la ventana
         try:
-            pt = doc.Utility.GetPoint(None, mensaje)
+            pt = _pedir_get_point(doc, mensaje, pythoncom)
         except Exception as exc:
+            hresult = exc.args[0] if getattr(exc, "args", None) else None
+            pista = ""
+            if hresult == _RPC_E_SERVERFAULT:
+                pista = (" (el CAD no llegó a iniciar el punto interactivo "
+                         "justo después de cambiar el foco de la ventana "
+                         "— intente de nuevo o haga clic manualmente en la "
+                         "ventana del CAD antes de repetir el envío)")
             raise RuntimeError(
                 "No se obtuvo el punto (¿se canceló con Esc, o falló la "
-                f"conexión con el CAD?): {exc}")
+                f"conexión con el CAD?): {exc}{pista}")
         if not isinstance(pt, (list, tuple)) or len(pt) < 2:
             raise RuntimeError(
                 f"El CAD devolvió un punto con formato inesperado: {pt!r}")
