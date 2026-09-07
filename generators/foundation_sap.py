@@ -1,30 +1,40 @@
 # -*- coding: utf-8 -*-
 """
-generators.foundation_sap — Fundación leída desde un modelo SAP2000.
+generators.foundation_sap — Fundaciones leídas desde un modelo SAP2000.
 
-Se conecta a una instancia de SAP2000 abierta, permite elegir una
-fundación (un grupo de SAP2000 con nodos y shells asignados) y dibuja:
-planta con el contorno real de cada shell (acotada), considerando el
-espesor de la propiedad de área asignada, y una elevación individual como
-corte real de la geometría según el eje (X o Y) y posición elegidos.
+Se conecta a una instancia de SAP2000 abierta y permite elegir un grupo de
+SAP2000 con nodos y shells asignados. Un grupo puede contener más de una
+fundación física (shells sin relación entre sí): cada una se resuelve por
+separado (`cad.sap2000_link.leer_fundacion`) a una "zapata" con su
+contorno exterior único (solo esquinas reales), el espesor de cada shell
+y los pedestales (columnas) detectados sobre ella.
+
+Se dibuja una planta y una elevación (corte real, no bounding-box) por
+cada zapata, dispuestas en grilla sin traslape; las elevaciones se ubican
+en una fila aparte, lejos de las plantas.
 
 A diferencia de los demás módulos, el panel no es un formulario estático
-(SpecPanel): el flujo es interactivo (conectar -> elegir grupo -> ajustar
-corte), así que implementa a mano el mismo contrato mínimo que usa
-MainWindow: params(), set_params() y la señal params_changed.
+(SpecPanel): el flujo es interactivo (conectar -> elegir grupo), así que
+implementa a mano el mismo contrato mínimo que usa MainWindow: params(),
+set_params() y la señal params_changed.
 """
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (QComboBox, QDoubleSpinBox, QFormLayout,
-                               QHBoxLayout, QLabel, QMessageBox,
-                               QPushButton, QVBoxLayout, QWidget)
+                               QLabel, QMessageBox, QPushButton,
+                               QVBoxLayout, QWidget)
 
 from cad import sap2000_link as sap
 from .data import ESCALAS, factor_escala
 from core import ir
-from core.ir import Circle, Poly, Text
+from core.ir import Poly, Text
 from core.geom import corte_poligono, level_symbol
 from core.dims import DimBuilder
+
+GAP_PLANTA = 250.0     # mm (sin escalar) entre plantas vecinas
+GAP_ELEV = 200.0       # mm entre elevaciones vecinas
+GAP_FILA = 400.0       # mm entre la fila de plantas y la fila de elevaciones
+ALTO_ARRANQUE_COL = 300.0   # mm, tramo de columna dibujado sobre la zapata
 
 
 # ----------------------------------------------------------------- panel --
@@ -55,28 +65,17 @@ class FoundationSapPanel(QWidget):
 
         self.cb_fundacion = QComboBox()
         self.cb_fundacion.currentTextChanged.connect(self._fundacion_changed)
-        form.addRow("Fundación (grupo SAP2000)", self.cb_fundacion)
+        form.addRow("Grupo SAP2000", self.cb_fundacion)
 
         self.cb_eje = QComboBox()
         self.cb_eje.addItems(["X", "Y"])
+        self.cb_eje.setToolTip(
+            "Dirección de corte de la elevación, aplicada a todas las "
+            "zapatas del grupo. La posición del corte es automática: pasa "
+            "por el pedestal de cada zapata, o por su centroide si no "
+            "tiene pedestal detectado.")
         self.cb_eje.currentTextChanged.connect(self._changed)
         form.addRow("Corte perpendicular a", self.cb_eje)
-
-        self.sp_pos = QDoubleSpinBox()
-        self.sp_pos.setRange(-1e7, 1e7)
-        self.sp_pos.setDecimals(0)
-        self.sp_pos.setSuffix(" mm")
-        self.sp_pos.valueChanged.connect(self._changed)
-        form.addRow("Posición del corte", self.sp_pos)
-
-        pos_btns = QHBoxLayout()
-        self.btn_centrar = QPushButton("Centrar")
-        self.btn_centrar.clicked.connect(self._centrar_corte)
-        self.btn_columna = QPushButton("En columna")
-        self.btn_columna.clicked.connect(self._corte_en_columna)
-        pos_btns.addWidget(self.btn_centrar)
-        pos_btns.addWidget(self.btn_columna)
-        form.addRow("", pos_btns)
 
         self.sp_espesor = QDoubleSpinBox()
         self.sp_espesor.setRange(0, 5000)
@@ -97,8 +96,7 @@ class FoundationSapPanel(QWidget):
 
     # ------------------------------------------------------------ acciones --
     def _set_controles_habilitados(self, on: bool):
-        for w in (self.cb_fundacion, self.cb_eje, self.sp_pos,
-                  self.btn_centrar, self.btn_columna, self.sp_espesor):
+        for w in (self.cb_fundacion, self.cb_eje, self.sp_espesor):
             w.setEnabled(on)
 
     def _conectar(self):
@@ -160,39 +158,14 @@ class FoundationSapPanel(QWidget):
                 QMessageBox.critical(self, "Leer fundación", msg)
                 return
         geom = self._cache[nombre]
-        espesores = [a.espesor for a in geom.areas if a.espesor]
+        espesores = [a.espesor for z in geom.zapatas for a in z.areas
+                    if a.espesor]
         self.sp_espesor.blockSignals(True)
         self.sp_espesor.setValue(espesores[0] if espesores else 0)
         self.sp_espesor.blockSignals(False)
-        self._centrar_corte()
-        self._changed()
-
-    def _bbox(self, geom):
-        xs = [p[0] for a in geom.areas for p in a.pts]
-        ys = [p[1] for a in geom.areas for p in a.pts]
-        return min(xs), max(xs), min(ys), max(ys)
-
-    def _centrar_corte(self):
-        geom = self._geom_actual()
-        if geom is None:
-            return
-        x0, x1, y0, y1 = self._bbox(geom)
-        valor = (x0 + x1) / 2.0 if self.cb_eje.currentText() == "X" \
-            else (y0 + y1) / 2.0
-        self.sp_pos.blockSignals(True)
-        self.sp_pos.setValue(valor)
-        self.sp_pos.blockSignals(False)
-        self._changed()
-
-    def _corte_en_columna(self):
-        geom = self._geom_actual()
-        if geom is None or not geom.nodos_libres:
-            return
-        eje_i = 0 if self.cb_eje.currentText() == "X" else 1
-        vals = [c[eje_i] for _, c in geom.nodos_libres]
-        self.sp_pos.blockSignals(True)
-        self.sp_pos.setValue(sum(vals) / len(vals))
-        self.sp_pos.blockSignals(False)
+        self.lbl_estado.setText(
+            f"Grupo '{nombre}': {len(geom.zapatas)} fundación(es) "
+            f"detectada(s).")
         self._changed()
 
     def _changed(self, *_):
@@ -206,7 +179,6 @@ class FoundationSapPanel(QWidget):
             "escala": self.cb_escala.currentText(),
             "fundacion": self.cb_fundacion.currentText(),
             "eje_corte": self.cb_eje.currentText(),
-            "pos_corte": self.sp_pos.value(),
             "espesor_default": self.sp_espesor.value(),
             "_geom": geom.to_dict() if geom is not None else None,
         }
@@ -226,105 +198,168 @@ class FoundationSapPanel(QWidget):
             self.cb_eje.setCurrentText(str(p["eje_corte"]))
         if "escala" in p:
             self.cb_escala.setCurrentText(str(p["escala"]))
-        if "pos_corte" in p:
-            self.sp_pos.setValue(float(p["pos_corte"]))
         if "espesor_default" in p:
             self.sp_espesor.setValue(float(p["espesor_default"]))
+
+
+# ------------------------------------------------------------ geometría --
+
+def _bbox(pts):
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+def _dibujar_pedestal(d, pos, pedestal, f, layer=ir.L_ACERO):
+    cx, cy = pos
+    largo, ancho = pedestal["largo"], pedestal["ancho"]
+    hx, hy = (largo / 2.0, ancho / 2.0) if pedestal["largo_en_x"] \
+        else (ancho / 2.0, largo / 2.0)
+    d.ents.append(ir.rect(cx - hx, cy - hy, cx + hx, cy + hy, layer))
+    etiqueta = pedestal["frame"]
+    if pedestal["aproximado"]:
+        etiqueta += " (aprox.)"
+    d.ents.append(Text((cx, cy), etiqueta, 2.0 * f, 0, ir.L_TXT, "c", "m"))
+
+
+def _dibujar_zapata_planta(d, db, zapata, offset_x, f, th):
+    x0, x1, y0, y1 = _bbox(zapata["contorno"])
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+    def loc(pt):
+        return (pt[0] - cx + offset_x, pt[1] - cy)
+
+    contorno_local = [loc(p) for p in zapata["contorno"]]
+    d.ents.append(Poly(contorno_local, closed=True, layer=ir.L_CONC))
+
+    for pedestal in zapata["pedestales"]:
+        _dibujar_pedestal(d, loc(pedestal["centro"]), pedestal, f)
+
+    xs_l = sorted(set(round(p[0], 1) for p in contorno_local))
+    ys_l = sorted(set(round(p[1], 1) for p in contorno_local))
+    lx0, lx1 = xs_l[0], xs_l[-1]
+    ly0, ly1 = ys_l[0], ys_l[-1]
+
+    y_dim1 = ly0 - 30 * f
+    if len(xs_l) > 2:
+        db.h_chain(xs_l, ly0, y_dim1, ext_from=ly0)
+        y_dim1 -= 30 * f
+    db.h_total(lx0, lx1, ly0, y_dim1, ext_from=ly0)
+    x_dim1 = lx1 + 30 * f
+    if len(ys_l) > 2:
+        db.v_chain(ys_l, lx1, x_dim1, ext_from=lx1)
+        x_dim1 += 30 * f
+    db.v_total(ly0, ly1, lx1, x_dim1, ext_from=lx1)
+
+    d.ents.append(Text((offset_x, ly0 - 90 * f), zapata["nombre"], 3.5 * f,
+                       0, ir.L_TXT, "c", "m"))
+    return x1 - x0, y1 - y0, ly0 - 90 * f - 15 * f
+
+
+def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
+                              espesor_default):
+    x0, x1, y0, y1 = _bbox(zapata["contorno"])
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+    if zapata["pedestales"]:
+        px = sum(p["centro"][0] for p in zapata["pedestales"]) / \
+            len(zapata["pedestales"])
+        py = sum(p["centro"][1] for p in zapata["pedestales"]) / \
+            len(zapata["pedestales"])
+    else:
+        px, py = cx, cy
+    pos_corte = px if eje == "x" else py
+
+    tramos = []   # (a, b, espesor)
+    for a in zapata["areas"]:
+        pts_xy = [(p[0], p[1]) for p in a["pts"]]
+        esp = a.get("espesor") or espesor_default
+        for t0, t1 in corte_poligono(pts_xy, eje, pos_corte):
+            tramos.append((t0, t1, esp if esp else espesor_default))
+
+    centro_transv = cy if eje == "x" else cx
+
+    def loc_t(t):
+        return offset_x + (t - centro_transv)
+
+    if not tramos:
+        d.ents.append(Text((offset_x, y0_off), f"{zapata['nombre']}: EL "
+                           "CORTE AUTOMÁTICO NO ATRAVIESA NINGÚN SHELL",
+                           2.5 * f, 0, ir.L_TXT, "c", "m"))
+        return 0.0, 0.0
+
+    esp_max = max(t[2] for t in tramos)
+    for t0, t1, esp in tramos:
+        d.ents.append(ir.rect(loc_t(t0), y0_off - esp, loc_t(t1), y0_off,
+                              ir.L_CONC))
+
+    t_min = min(t[0] for t in tramos)
+    t_max = max(t[1] for t in tramos)
+    d.ents.extend(level_symbol((loc_t(t_min) - 25 * f, y0_off), th,
+                               "N.P. ±0.00"))
+
+    alto_col = ALTO_ARRANQUE_COL * f / 5.0
+    for pedestal in zapata["pedestales"]:
+        centro_ped = pedestal["centro"][1] if eje == "x" else \
+            pedestal["centro"][0]
+        ancho_ped = pedestal["ancho"] if (
+            (eje == "x") == pedestal["largo_en_x"]) else pedestal["largo"]
+        xa = loc_t(centro_ped) - ancho_ped / 2.0
+        xb = loc_t(centro_ped) + ancho_ped / 2.0
+        d.ents.append(ir.rect(xa, y0_off, xb, y0_off + alto_col,
+                              ir.L_ACERO))
+
+    y_dim2 = y0_off - esp_max - 30 * f
+    db.h_total(loc_t(t_min), loc_t(t_max), y0_off - esp_max, y_dim2,
+              ext_from=y0_off - esp_max)
+    db.v_total(y0_off - esp_max, y0_off, loc_t(t_max), loc_t(t_max) + 30 * f,
+              ext_from=loc_t(t_max))
+
+    nombres_sec = ", ".join(sorted({a["seccion"] for a in zapata["areas"]
+                                    if a["seccion"]}))
+    d.ents.append(Text(
+        (offset_x, y0_off - esp_max - 60 * f),
+        f"{zapata['nombre']}" + (f"  -  SEC. {nombres_sec}"
+                                 if nombres_sec else ""),
+        3.0 * f, 0, ir.L_TXT, "c", "m"))
+
+    return (t_max - t_min), esp_max
 
 
 # -------------------------------------------------------------- generador --
 def build_foundation(p: dict) -> ir.Drawing:
     geom_d = p.get("_geom")
-    if not geom_d or not geom_d.get("areas"):
-        raise ValueError("Conecte a SAP2000 y elija una fundación con "
-                         "shells asignados.")
+    zapatas = geom_d.get("zapatas") if geom_d else None
+    if not zapatas:
+        raise ValueError("Conecte a SAP2000 y elija un grupo con shells "
+                         "asignados.")
 
     f = p.get("_escala", 5.0)
     th = 3.0 * f
     d = ir.Drawing()
     db = DimBuilder(d.ents, th)
-
-    areas = geom_d["areas"]
-    nodos_libres = geom_d.get("nodos_libres", [])
+    eje = "x" if p.get("eje_corte", "X") == "X" else "y"
     espesor_default = p.get("espesor_default", 0.0)
 
-    xs = [pt[0] for a in areas for pt in a["pts"]]
-    ys = [pt[1] for a in areas for pt in a["pts"]]
-    cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+    # ============================ PLANTAS ============================
+    cursor_x = 0.0
+    y_min_plantas = 0.0
+    for zapata in zapatas:
+        x0, x1, y0, y1 = _bbox(zapata["contorno"])
+        ancho = x1 - x0
+        offset_x = cursor_x + ancho / 2.0
+        _, alto, y_bottom = _dibujar_zapata_planta(d, db, zapata, offset_x,
+                                                    f, th)
+        y_min_plantas = min(y_min_plantas, y_bottom)
+        cursor_x += ancho + GAP_PLANTA * f
 
-    def loc(pt):
-        return (pt[0] - cx, pt[1] - cy)
+    # ========================== ELEVACIONES ===========================
+    y_fila_elev = y_min_plantas - GAP_FILA * f
+    cursor_x = 0.0
+    for zapata in zapatas:
+        ancho_corte, esp = _dibujar_zapata_elevacion(
+            d, db, zapata, eje, cursor_x, y_fila_elev, f, th,
+            espesor_default)
+        cursor_x += max(ancho_corte, 1.0) + GAP_ELEV * f
 
-    # ============================ PLANTA ============================
-    for a in areas:
-        pts_xy = [loc(pt) for pt in a["pts"]]
-        d.ents.append(Poly(pts_xy, closed=True, layer=ir.L_CONC))
-        for px, py in pts_xy:
-            d.ents.append(Circle((px, py), 1.2 * f, ir.L_EJE))
-    for nombre, coord in nodos_libres:
-        px, py = loc(coord)
-        d.ents.append(Circle((px, py), 1.6 * f, ir.L_EJE))
-        d.ents.append(Text((px + 3 * f, py + 3 * f), nombre, 2.0 * f,
-                           0, ir.L_TXT, "l", "b"))
-
-    xs_l = sorted(set(round(x - cx, 1) for x in xs))
-    ys_l = sorted(set(round(y - cy, 1) for y in ys))
-    x0, x1 = xs_l[0], xs_l[-1]
-    y0, y1 = ys_l[0], ys_l[-1]
-
-    y_dim1 = y0 - 30 * f
-    if len(xs_l) > 2:
-        db.h_chain(xs_l, y0, y_dim1, ext_from=y0)
-        y_dim1 -= 30 * f
-    db.h_total(x0, x1, y0, y_dim1, ext_from=y0)
-    x_dim1 = x1 + 30 * f
-    if len(ys_l) > 2:
-        db.v_chain(ys_l, x1, x_dim1, ext_from=x1)
-        x_dim1 += 30 * f
-    db.v_total(y0, y1, x1, x_dim1, ext_from=x1)
-
-    # ========================== ELEVACIÓN ===========================
-    eje = "x" if p.get("eje_corte", "X") == "X" else "y"
-    centro_eje = cx if eje == "x" else cy
-    pos = p.get("pos_corte", centro_eje) - centro_eje
-
-    espesores = [a.get("espesor") or espesor_default for a in areas]
-    esp_max = max(espesores) if espesores else espesor_default
-    ex = x1 + 200 * f                # centro horizontal de la elevación
-
-    tramos = []   # (a, b, espesor)
-    for a, esp in zip(areas, espesores):
-        pts_xy = [loc(pt) for pt in a["pts"]]
-        for t0, t1 in corte_poligono(pts_xy, eje, pos):
-            tramos.append((t0, t1, esp if esp else espesor_default))
-
-    if not tramos:
-        d.ents.append(Text((ex, 0), "EL CORTE NO ATRAVIESA NINGÚN SHELL",
-                           3.0 * f, 0, ir.L_TXT, "c", "m"))
-    else:
-        centro_tramos = (min(t[0] for t in tramos) +
-                         max(t[1] for t in tramos)) / 2.0
-        for t0, t1, esp in tramos:
-            xa = ex + (t0 - centro_tramos)
-            xb = ex + (t1 - centro_tramos)
-            d.ents.append(ir.rect(xa, -esp, xb, 0, ir.L_CONC))
-        d.ents.extend(level_symbol(
-            (ex - (max(t[1] for t in tramos) -
-                  min(t[0] for t in tramos)) / 2.0 - 25 * f, 0),
-            th, "N.P. ±0.00"))
-
-        t_min = min(t[0] for t in tramos) - centro_tramos
-        t_max = max(t[1] for t in tramos) - centro_tramos
-        y_dim2 = -esp_max - 30 * f
-        db.h_total(ex + t_min, ex + t_max, -esp_max, y_dim2, ext_from=-esp_max)
-        db.v_total(-esp_max, 0, ex + t_max, ex + t_max + 30 * f,
-                  ext_from=ex + t_max)
-
-    nombres_sec = ", ".join(sorted({a["seccion"] for a in areas if a["seccion"]}))
-    d.ents.append(Text(
-        (ex, -esp_max - 60 * f),
-        f"FUNDACIÓN {geom_d['nombre']}" +
-        (f"  -  SEC. {nombres_sec}" if nombres_sec else "") +
-        f"  -  ESC {p.get('escala', '1:50')}",
-        4.0 * f, 0, ir.L_TXT, "c", "m"))
     return d

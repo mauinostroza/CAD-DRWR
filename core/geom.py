@@ -255,6 +255,120 @@ def corte_poligono(pts, eje: str, valor: float) -> list:
     return tramos
 
 
+# ------------------------------------------------ contornos de malla (SAP2000) --
+
+def agrupar_por_adyacencia(listas_nombres: list) -> list:
+    """Agrupa shells en componentes conexas por adyacencia de arista.
+
+    `listas_nombres[i]` es la lista ordenada de nombres de joint (esquinas)
+    del shell `i`. Dos shells están en la misma componente si comparten al
+    menos una arista (par de joints consecutivos, en cualquier orden) —
+    edificios/fundaciones con varios shells sueltos en un mismo grupo de
+    SAP2000 quedan separados en distintas componentes. Devuelve una lista
+    de listas de índices (Union-Find)."""
+    n = len(listas_nombres)
+    aristas = []
+    for nombres in listas_nombres:
+        k = len(nombres)
+        aristas.append({frozenset((nombres[i], nombres[(i + 1) % k]))
+                        for i in range(k)})
+
+    padre = list(range(n))
+
+    def find(x):
+        while padre[x] != x:
+            padre[x] = padre[padre[x]]
+            x = padre[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            padre[ra] = rb
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if aristas[i] & aristas[j]:
+                union(i, j)
+
+    grupos = {}
+    for i in range(n):
+        grupos.setdefault(find(i), []).append(i)
+    return list(grupos.values())
+
+
+def contorno_exterior(listas_nombres: list) -> list:
+    """Contorno exterior único de un grupo de shells ya verificado como una
+    sola componente conexa (ver `agrupar_por_adyacencia`).
+
+    Cuenta cuántas veces aparece cada arista (par de joints, sin importar
+    el orden) entre todos los shells: una arista compartida por dos shells
+    es interior y se cancela; las que aparecen una sola vez son de borde.
+    Encadena esas aristas de borde por nombre de joint (se asume un grafo
+    de grado 2 — un solo lazo cerrado, sin huecos) y devuelve el contorno
+    como lista ordenada de nombres de joint."""
+    from collections import Counter, defaultdict
+    conteo = Counter()
+    for nombres in listas_nombres:
+        k = len(nombres)
+        for i in range(k):
+            conteo[frozenset((nombres[i], nombres[(i + 1) % k]))] += 1
+
+    vecinos = defaultdict(list)
+    for arista, c in conteo.items():
+        if c == 1:
+            a, b = tuple(arista)
+            vecinos[a].append(b)
+            vecinos[b].append(a)
+    if not vecinos:
+        return []
+
+    inicio = next(iter(vecinos))
+    recorrido = [inicio]
+    visitadas = set()
+    actual = inicio
+    while True:
+        siguiente = None
+        for v in vecinos[actual]:
+            clave = frozenset((actual, v))
+            if clave not in visitadas:
+                siguiente = v
+                visitadas.add(clave)
+                break
+        if siguiente is None or (siguiente == inicio and len(recorrido) > 2):
+            break
+        recorrido.append(siguiente)
+        actual = siguiente
+    return recorrido
+
+
+def simplificar_colineales(pts: list, tol: float = 2.0) -> list:
+    """Elimina de un polígono cerrado los vértices colineales con sus
+    vecinos dentro de `tol` mm de distancia perpendicular, dejando solo
+    las esquinas reales del contorno (pasadas repetidas hasta estabilizar,
+    para limpiar cadenas de varios puntos colineales seguidos)."""
+    out = list(pts)
+    cambiado = True
+    while cambiado and len(out) > 3:
+        cambiado = False
+        nuevo = []
+        n = len(out)
+        for i in range(n):
+            a, b, c = out[i - 1], out[i], out[(i + 1) % n]
+            dx, dy = c[0] - a[0], c[1] - a[1]
+            largo = math.hypot(dx, dy)
+            if largo < TOL:
+                cambiado = True
+                continue
+            d = abs((b[0] - a[0]) * dy - (b[1] - a[1]) * dx) / largo
+            if d <= tol:
+                cambiado = True
+                continue
+            nuevo.append(b)
+        out = nuevo
+    return out
+
+
 def thread_zigzag(p0: PT, length: float, w: float, pitch: float,
                   layer=ir.L_ACERO) -> list:
     """Rosca esquemática de perno: zigzag a lo largo de +Y desde p0."""

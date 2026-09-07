@@ -195,26 +195,42 @@ El ejecutable queda en `dist/StructGenCAD.exe`.
 Lee la geometría de fundaciones ya modeladas en **SAP2000** (nodos y
 shells de área) para dibujarlas automáticamente:
 
-1. En SAP2000, agrupe los nodos y shells de cada fundación en un **grupo**
-   (Assign > Group Names). Un grupo = una fundación.
+1. En SAP2000, agrupe los shells (y opcionalmente nodos) de sus
+   fundaciones en un **grupo** (Assign > Group Names). Un mismo grupo
+   puede contener **más de una fundación física** (varios shells sin
+   relación entre sí, p. ej. todas las zapatas de una zona): StructGenCAD
+   separa automáticamente el grupo en fundaciones independientes por
+   adyacencia de shells (dos shells pertenecen a la misma fundación si
+   comparten una arista).
 2. En StructGenCAD, seleccione el módulo **Fundación SAP2000** y presione
    **Conectar a SAP2000** (SAP2000 debe estar abierto con el modelo
    cargado; usa la misma conexión COM/OAPI que ZWCAD/AutoCAD, pero es una
    conexión independiente — puede tener SAP2000 y el CAD abiertos a la
    vez).
-3. Elija la fundación (grupo) en la lista. Se dibuja la planta con el
-   contorno real de sus shells, acotada, usando el espesor de la
-   propiedad de área asignada (auto-detectado; **siempre editable**, por
-   si la versión de SAP2000 no expone el espesor con la firma esperada).
-4. Elija el eje de corte (X o Y) y su posición — con botones **Centrar**
-   (centroide) y **En columna** (promedio de los nodos del grupo que no
-   pertenecen a ningún shell, típicamente el pedestal/columna) — para ver
-   la **elevación como corte real** de la geometría en ese punto. En
-   fundaciones no rectangulares o combinadas (forma L, por ejemplo), el
-   corte puede generar más de un tramo.
-5. Exporte a DXF o envíe a ZWCAD/AutoCAD igual que cualquier otro módulo.
+3. Elija el grupo en la lista. Por cada fundación detectada dentro del
+   grupo se dibuja:
+   - **Planta**: una única polilínea cerrada con el contorno exterior real
+     (solo esquinas — para una fundación rectangular, 4 vértices; se
+     agregan más solo si hay lados no colineales), acotada alrededor de
+     esa fundación, usando el espesor de la propiedad de área asignada
+     (auto-detectado; **siempre editable**, por si la versión de SAP2000
+     no expone el espesor con la firma esperada).
+   - **Pedestal(es)**: si hay una columna (frame vertical) apoyada sobre
+     la fundación —incluso en un nodo interior de la malla, no solo en
+     sus esquinas—, se dibuja con su dimensión real (rectangular o
+     circular, leída de la sección del frame) en su posición exacta.
+   - **Elevación individual**: corte real de la geometría (no un simple
+     bounding-box) en la dirección elegida (**Corte perpendicular a**
+     X/Y, aplicada a todas las fundaciones del dibujo), pasando
+     automáticamente por el pedestal de esa fundación o, si no tiene, por
+     su centroide. En fundaciones combinadas o con espesor escalonado, el
+     corte puede generar más de un tramo.
+   - Todas las plantas se disponen una junto a otra sin traslaparse; las
+     elevaciones se dibujan en una fila aparte, bien alejada de las
+     plantas, también sin traslaparse entre sí.
+4. Exporte a DXF o envíe a ZWCAD/AutoCAD igual que cualquier otro módulo.
 
-Supuesto de dibujo: la cota Z de los nodos del shell se toma como el
+Supuesto de dibujo: la cota Z de los joints del shell se toma como el
 **tope** de la fundación; la elevación se extruye hacia abajo el espesor
 leído/editado.
 

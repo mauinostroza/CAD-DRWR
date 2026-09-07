@@ -3,19 +3,31 @@
 cad.sap2000_link — Conexión de solo lectura con SAP2000 (COM/OAPI).
 
 Lee la geometría de fundaciones ya modeladas en SAP2000 (nodos y shells de
-área agrupados en un grupo de SAP2000) para dibujarlas en StructGenCAD:
-planta con el contorno real de cada shell y espesor de su propiedad de
-área asignada.
+área agrupados en un grupo de SAP2000) para dibujarlas en StructGenCAD.
+
+Un grupo de SAP2000 puede contener más de una fundación física (varios
+shells sin relación entre sí): se detectan las componentes conexas por
+adyacencia de arista (`core.geom.agrupar_por_adyacencia`) y cada una se
+resuelve a una `Zapata` con su contorno exterior único (esquinas reales,
+`core.geom.contorno_exterior` + `simplificar_colineales`), su espesor por
+shell y los pedestales (columnas) que nacen sobre ella — detección
+portada de la app de referencia "Foundations SAP2000"
+(`app/sap2000/pedestales_automaticos.py`): frames verticales cuyo pie
+coincide con un joint de la malla de un shell, con su dimensión real leída
+de `PropFrame.GetRectangle`/`GetCircle`.
 
 Estrategia de conexión y criterio de tolerancia a firmas COM adaptados de
-la app de referencia "Foundations SAP2000" (win32com late-binding, sin
-`gencache`, para no invocar DISPID de otra versión de SAP2000 instalada y
-cerrarla a mitad de la conexión). Requiere Windows + pywin32 (ya listado
-en requirements.txt) y SAP2000 abierto con el modelo cargado.
+esa misma app de referencia (win32com late-binding, sin `gencache`, para
+no invocar DISPID de otra versión de SAP2000 instalada y cerrarla a mitad
+de la conexión). Requiere Windows + pywin32 (ya listado en
+requirements.txt) y SAP2000 abierto con el modelo cargado.
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+from core.geom import agrupar_por_adyacencia, contorno_exterior, \
+    simplificar_colineales
 
 PROG_IDS = [
     "CSI.SAP2000.API.SapObject",
@@ -31,6 +43,16 @@ HELPER_PROG_IDS = [
 ]
 
 UNIDADES_N_MM_C = 9  # eUnits de SAP2000: N, mm, °C
+
+# Tolerancia (mm) para considerar un frame "vertical": variación máxima
+# admitida en X/Y entre sus dos extremos. Unidades ya fijadas a mm
+# (`set_units_mm`), a diferencia de la app de referencia (metros).
+_EPS_VERTICAL_MM = 1.0
+
+# Dimensión de relleno (mm) cuando no se pudo leer ni rectángulo ni
+# círculo de la sección del pedestal — deliberadamente chica para que
+# salte a la vista en la vista previa como un valor a revisar.
+_DIMENSION_PLACEHOLDER_MM = 300.0
 
 
 def _win32():
@@ -331,6 +353,60 @@ def seccion_de_area(link: SapLink, area: str) -> str:
                        f"({area!r}).")
 
 
+def elementos_de_area(link: SapLink, area: str) -> List[str]:
+    """Nombres de los elementos de la malla de análisis (AreaElm) en que se
+    subdivide un objeto de área — puede ser uno solo si no se subdividió."""
+    model = link.get_sap_model()
+    try:
+        raw = model.AreaObj.GetElm(area)
+    except Exception:
+        return []
+    arrays = _arrays_de_respuesta(raw)
+    for arr in arrays:
+        if arr and all(isinstance(x, str) for x in arr):
+            return [str(x) for x in arr]
+    if isinstance(raw, (list, tuple)):
+        nombres = [str(x) for x in raw if isinstance(x, str)]
+        if nombres:
+            return nombres
+    return []
+
+
+def puntos_de_elemento(link: SapLink, elm: str) -> List[str]:
+    """Nombres de los joints de un elemento de la malla de análisis
+    (AreaElm) — incluye nodos intermedios que la malla automática agrega
+    y que no son esquina del objeto de área (p. ej. el punto donde se
+    apoya una columna al centro de una zapata de un solo shell)."""
+    model = link.get_sap_model()
+    try:
+        raw = model.AreaElm.GetPoints(elm)
+    except Exception:
+        return []
+    arrays = _arrays_de_respuesta(raw)
+    for arr in arrays:
+        if arr and all(isinstance(x, str) for x in arr):
+            return [str(x) for x in arr]
+    if isinstance(raw, (list, tuple)):
+        nombres = [str(x) for x in raw if isinstance(x, str)]
+        if nombres:
+            return nombres
+    return []
+
+
+def joints_malla_de_area(link: SapLink, area: str) -> List[str]:
+    """Todos los joints de la malla de análisis de un objeto de área
+    (unión de los joints de cada uno de sus elementos), usada para detectar
+    pedestales que se apoyan en un nodo interior generado por el mallado
+    automático — mismo criterio que `diagramas_shell.py` en la app de
+    referencia (`AreaObj.GetElm` + `AreaElm.GetPoints`)."""
+    vistos = []
+    for elm in elementos_de_area(link, area):
+        for nombre in puntos_de_elemento(link, elm):
+            if nombre not in vistos:
+                vistos.append(nombre)
+    return vistos
+
+
 def espesor_de_seccion(link: SapLink, nombre_seccion: str) -> Optional[float]:
     """Espesor (mm, con unidades ya fijadas a N-mm-°C) de una propiedad de
     área tipo shell. La firma exacta de PropArea.GetShell no está
@@ -362,74 +438,305 @@ def espesor_de_seccion(link: SapLink, nombre_seccion: str) -> Optional[float]:
     return max(candidatos)
 
 
+# --------------------------------------------------------- pedestales --
+# Puerto de app/sap2000/pedestales_automaticos.py (Foundations SAP2000):
+# frames verticales cuyo pie coincide con un joint que es esquina de algún
+# shell del grupo, con su dimensión real leída de PropFrame.
+
+def nombres_de_frames(link: SapLink) -> List[str]:
+    model = link.get_sap_model()
+    try:
+        return _parse_name_list(model.FrameObj.GetNameList())
+    except Exception:
+        return []
+
+
+def puntos_de_frame(link: SapLink, frame: str) -> Tuple[str, str]:
+    model = link.get_sap_model()
+    raw = model.FrameObj.GetPoints(frame)
+    arrays = _arrays_de_respuesta(raw)
+    if arrays:
+        punto_i = str(arrays[0][0]) if arrays[0] else None
+        punto_j = str(arrays[1][0]) if len(arrays) > 1 and arrays[1] else None
+        if punto_i and punto_j:
+            return punto_i, punto_j
+    if isinstance(raw, (list, tuple)):
+        candidatos = [str(x) for x in raw if isinstance(x, str)]
+        if len(candidatos) >= 2:
+            return candidatos[0], candidatos[1]
+    raise RuntimeError(f"No se pudo interpretar FrameObj.GetPoints({frame!r}).")
+
+
+def seccion_de_frame(link: SapLink, frame: str) -> str:
+    model = link.get_sap_model()
+    ret = model.FrameObj.GetSection(frame)
+    if isinstance(ret, (list, tuple)):
+        nombres = [x for x in ret if isinstance(x, str)]
+        if nombres:
+            return nombres[0]
+    raise RuntimeError(f"No se pudo interpretar FrameObj.GetSection({frame!r}).")
+
+
+def dimensiones_rectangulo_frame(link: SapLink,
+                                 seccion: str) -> Tuple[float, float]:
+    model = link.get_sap_model()
+    ret = model.PropFrame.GetRectangle(seccion)
+    # T3/T2 llegan como `float`; el código de retorno y `Color` son `int`
+    # — filtrar por float aísla las dimensiones reales.
+    dims = [v for v in ret if isinstance(v, float)] if isinstance(
+        ret, (list, tuple)) else []
+    if len(dims) >= 2 and dims[0] > 0 and dims[1] > 0:
+        return float(dims[0]), float(dims[1])
+    raise RuntimeError(f"PropFrame.GetRectangle({seccion!r}) no devolvió "
+                       "dimensiones válidas.")
+
+
+def dimensiones_circulo_frame(link: SapLink, seccion: str) -> Tuple[float, float]:
+    model = link.get_sap_model()
+    ret = model.PropFrame.GetCircle(seccion)
+    dims = [v for v in ret if isinstance(v, float)] if isinstance(
+        ret, (list, tuple)) else []
+    if dims and dims[0] > 0:
+        return float(dims[0]), float(dims[0])
+    raise RuntimeError(f"PropFrame.GetCircle({seccion!r}) no devolvió un "
+                       "diámetro válido.")
+
+
+def orientacion_frame(link: SapLink, frame: str) -> bool:
+    """`largo_en_x`: True si el lado "largo" de la sección queda sobre el
+    eje X global. Sin lectura confiable de los ejes locales, se asume
+    True por defecto (el usuario puede corregirlo en la vista previa)."""
+    try:
+        model = link.get_sap_model()
+        ret = model.FrameObj.GetLocalAxes(frame)
+        angulos = [v for v in ret if isinstance(v, (int, float))
+                  and not isinstance(v, bool)] if isinstance(
+            ret, (list, tuple)) else []
+        if angulos:
+            angulo = float(angulos[-1]) % 180.0
+            return angulo < 45.0 or angulo >= 135.0
+    except Exception:
+        pass
+    return True
+
+
+@dataclass
+class Pedestal:
+    frame: str
+    largo: float
+    ancho: float
+    largo_en_x: bool
+    centro: Tuple[float, float]
+    punto_pie: str
+    aproximado: bool = False
+    motivo_aviso: str = ""
+
+
+def detectar_pedestales(link: SapLink,
+                        coords: Dict[str, Tuple[float, float, float]]
+                        ) -> List[Pedestal]:
+    """Recorre todos los frames del modelo y devuelve los candidatos a
+    pedestal: frames verticales cuyo extremo inferior coincide con un
+    joint de `coords` (típicamente las esquinas de los shells de un
+    grupo/fundación)."""
+    candidatos: List[Pedestal] = []
+    for frame in nombres_de_frames(link):
+        try:
+            punto_i, punto_j = puntos_de_frame(link, frame)
+            xi, yi, zi = coordenada(link, punto_i)
+            xj, yj, zj = coordenada(link, punto_j)
+        except Exception:
+            continue
+
+        vertical = (abs(xi - xj) < _EPS_VERTICAL_MM
+                   and abs(yi - yj) < _EPS_VERTICAL_MM
+                   and abs(zi - zj) > _EPS_VERTICAL_MM)
+        if not vertical:
+            continue
+
+        if zi <= zj:
+            punto_pie, (x_pie, y_pie) = punto_i, (xi, yi)
+        else:
+            punto_pie, (x_pie, y_pie) = punto_j, (xj, yj)
+
+        if punto_pie not in coords:
+            continue
+
+        try:
+            seccion = seccion_de_frame(link, frame)
+        except Exception:
+            continue
+
+        aproximado = False
+        motivo_aviso = ""
+        try:
+            largo, ancho = dimensiones_rectangulo_frame(link, seccion)
+        except Exception:
+            try:
+                largo, ancho = dimensiones_circulo_frame(link, seccion)
+                aproximado = True
+                motivo_aviso = "Sección circular, aproximada como cuadrado"
+            except Exception:
+                largo = ancho = _DIMENSION_PLACEHOLDER_MM
+                aproximado = True
+                motivo_aviso = ("Sección no reconocida, dimensión de "
+                                "relleno — revisar manualmente")
+
+        largo_en_x = orientacion_frame(link, frame)
+        candidatos.append(Pedestal(
+            frame=frame, largo=largo, ancho=ancho, largo_en_x=largo_en_x,
+            centro=(x_pie, y_pie), punto_pie=punto_pie,
+            aproximado=aproximado, motivo_aviso=motivo_aviso))
+    return candidatos
+
+
+# ------------------------------------------------------- modelo de datos --
+
 @dataclass
 class AreaGeom:
     nombre: str
     seccion: str
     espesor: Optional[float]
+    pts_nombres: List[str]
     pts: List[Tuple[float, float, float]]
+    pts_malla: List[str] = field(default_factory=list)
 
 
 @dataclass
-class FundacionGeom:
+class Zapata:
+    """Una fundación física (componente conexa de shells) dentro de un
+    grupo de SAP2000."""
     nombre: str
     areas: List[AreaGeom] = field(default_factory=list)
-    nodos_libres: List[Tuple[str, Tuple[float, float, float]]] = field(
-        default_factory=list)
+    contorno: List[Tuple[float, float]] = field(default_factory=list)
+    pedestales: List[Pedestal] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
             "nombre": self.nombre,
             "areas": [
                 {"nombre": a.nombre, "seccion": a.seccion,
-                 "espesor": a.espesor, "pts": [list(p) for p in a.pts]}
+                 "espesor": a.espesor, "pts_nombres": list(a.pts_nombres),
+                 "pts": [list(p) for p in a.pts],
+                 "pts_malla": list(a.pts_malla)}
                 for a in self.areas
             ],
-            "nodos_libres": [[n, list(c)] for n, c in self.nodos_libres],
+            "contorno": [list(p) for p in self.contorno],
+            "pedestales": [
+                {"frame": pd.frame, "largo": pd.largo, "ancho": pd.ancho,
+                 "largo_en_x": pd.largo_en_x, "centro": list(pd.centro),
+                 "punto_pie": pd.punto_pie, "aproximado": pd.aproximado,
+                 "motivo_aviso": pd.motivo_aviso}
+                for pd in self.pedestales
+            ],
         }
+
+    @staticmethod
+    def from_dict(d: dict) -> "Zapata":
+        return Zapata(
+            nombre=d.get("nombre", ""),
+            areas=[
+                AreaGeom(a["nombre"], a["seccion"], a.get("espesor"),
+                        list(a.get("pts_nombres", [])),
+                        [tuple(p) for p in a["pts"]],
+                        list(a.get("pts_malla", [])))
+                for a in d.get("areas", [])
+            ],
+            contorno=[tuple(p) for p in d.get("contorno", [])],
+            pedestales=[
+                Pedestal(pd["frame"], pd["largo"], pd["ancho"],
+                        pd["largo_en_x"], tuple(pd["centro"]),
+                        pd.get("punto_pie", ""), pd.get("aproximado", False),
+                        pd.get("motivo_aviso", ""))
+                for pd in d.get("pedestales", [])
+            ],
+        )
+
+
+@dataclass
+class FundacionGeom:
+    nombre: str
+    zapatas: List[Zapata] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"nombre": self.nombre,
+                "zapatas": [z.to_dict() for z in self.zapatas]}
 
     @staticmethod
     def from_dict(d: dict) -> "FundacionGeom":
         return FundacionGeom(
             nombre=d.get("nombre", ""),
-            areas=[
-                AreaGeom(a["nombre"], a["seccion"], a.get("espesor"),
-                        [tuple(p) for p in a["pts"]])
-                for a in d.get("areas", [])
-            ],
-            nodos_libres=[(n, tuple(c)) for n, c in d.get("nodos_libres", [])],
-        )
+            zapatas=[Zapata.from_dict(z) for z in d.get("zapatas", [])])
 
 
 def leer_fundacion(link: SapLink, grupo: str) -> FundacionGeom:
-    """Lee de SAP2000 toda la geometría de una fundación (grupo): contorno
-    y espesor de cada shell, y los nodos del grupo que no pertenecen a
-    ningún shell (típicamente columnas/pedestales)."""
+    """Lee de SAP2000 toda la geometría de un grupo: separa sus shells en
+    fundaciones físicas independientes (componentes conexas por arista
+    compartida), calcula el contorno exterior único de cada una (esquinas
+    reales, sin vértices colineales) y detecta los pedestales que nacen
+    sobre cada una."""
     miembros = miembros_de_grupo(link, grupo)
     nombres_shells = miembros["shells"]
-    nombres_nodos = set(miembros["nodos"])
 
     original_units = link.set_units_mm()
     try:
-        areas = []
-        nodos_usados = set()
+        areas: List[AreaGeom] = []
+        coords: Dict[str, Tuple[float, float, float]] = {}
+        # Joints de la malla de análisis (superconjunto de las esquinas del
+        # objeto): necesarios para detectar pedestales apoyados en un nodo
+        # interior de una zapata de un solo shell (el caso más común), no
+        # solo en sus 4 esquinas — mismo criterio que `diagramas_shell.py`
+        # en la app de referencia.
+        coords_malla: Dict[str, Tuple[float, float, float]] = {}
         for area in nombres_shells:
             nombres_pts = puntos_de_area(link, area)
             pts = [coordenada(link, p) for p in nombres_pts]
-            nodos_usados.update(nombres_pts)
+            for nombre_pt, xyz in zip(nombres_pts, pts):
+                coords[nombre_pt] = xyz
+                coords_malla[nombre_pt] = xyz
             try:
                 seccion = seccion_de_area(link, area)
             except RuntimeError:
                 seccion = ""
             espesor = espesor_de_seccion(link, seccion) if seccion else None
-            areas.append(AreaGeom(area, seccion, espesor, pts))
 
-        nodos_libres = []
-        for nodo in nombres_nodos - nodos_usados:
-            nodos_libres.append((nodo, coordenada(link, nodo)))
+            pts_malla = joints_malla_de_area(link, area)
+            for nombre_pt in pts_malla:
+                if nombre_pt not in coords_malla:
+                    try:
+                        coords_malla[nombre_pt] = coordenada(link, nombre_pt)
+                    except RuntimeError:
+                        continue
+            if not pts_malla:
+                pts_malla = list(nombres_pts)
+
+            areas.append(AreaGeom(area, seccion, espesor, nombres_pts, pts,
+                                  pts_malla))
+
+        if not areas:
+            raise RuntimeError(f"El grupo '{grupo}' no tiene shells asignados.")
+
+        pedestales = detectar_pedestales(link, coords_malla)
+
+        componentes = agrupar_por_adyacencia([a.pts_nombres for a in areas])
+        zapatas: List[Zapata] = []
+        for k, idxs in enumerate(componentes):
+            areas_comp = [areas[i] for i in idxs]
+            nombres_contorno = contorno_exterior(
+                [a.pts_nombres for a in areas_comp])
+            contorno_xy = [coords[n][:2] for n in nombres_contorno]
+            contorno_xy = simplificar_colineales(contorno_xy)
+
+            joints_malla_comp = {n for a in areas_comp for n in a.pts_malla}
+            pedestales_comp = [p for p in pedestales
+                               if p.punto_pie in joints_malla_comp]
+
+            nombre_zapata = (pedestales_comp[0].frame
+                            if len(pedestales_comp) == 1 else f"F{k + 1}")
+            zapatas.append(Zapata(nombre=nombre_zapata, areas=areas_comp,
+                                  contorno=contorno_xy,
+                                  pedestales=pedestales_comp))
     finally:
         link.restore_units(original_units)
 
-    if not areas:
-        raise RuntimeError(f"El grupo '{grupo}' no tiene shells asignados.")
-    return FundacionGeom(nombre=grupo, areas=areas, nodos_libres=nodos_libres)
+    return FundacionGeom(nombre=grupo, zapatas=zapatas)
