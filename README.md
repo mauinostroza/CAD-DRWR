@@ -89,6 +89,7 @@ La geometría no cambia.
 | **Perno de Anclaje** | Detalle de perno tipo L (codo 90°), J (gancho 135°) o recto con placa de anclaje: rosca, tuerca, arandela, concreto, N.P. y cuadro de pernos. |
 | **Perfil Estructural** | Secciones I/W, H (HEA), canal C, ángulo L, T y caja HSS con acotado completo, ejes y propiedades aproximadas (área y peso lineal). Series comerciales W/HE precargadas. |
 | **Forma de Barra** | Barras recta, L 90°, U, estribo cerrado 135° y Z, con radios de doblez reales (R = k·Ø), desarrollo calculado y fila de despiece. |
+| **Fundación SAP2000** | Planta con el contorno real de los shells de una fundación (leída de un modelo SAP2000 abierto) y su espesor asignado, acotada, + elevación como corte real de la geometría según el eje y posición elegidos. Ver sección 8. |
 
 Las elevaciones altas de pedestales se presentan con una rotura gráfica
 convencional: la geometría se mantiene legible y la cota indica siempre la
@@ -189,7 +190,35 @@ pyinstaller --noconfirm --clean --onefile --windowed --name StructGenCAD main.py
 
 El ejecutable queda en `dist/StructGenCAD.exe`.
 
-## 8. Extensiones posibles
+## 8. Módulo "Fundación SAP2000"
+
+Lee la geometría de fundaciones ya modeladas en **SAP2000** (nodos y
+shells de área) para dibujarlas automáticamente:
+
+1. En SAP2000, agrupe los nodos y shells de cada fundación en un **grupo**
+   (Assign > Group Names). Un grupo = una fundación.
+2. En StructGenCAD, seleccione el módulo **Fundación SAP2000** y presione
+   **Conectar a SAP2000** (SAP2000 debe estar abierto con el modelo
+   cargado; usa la misma conexión COM/OAPI que ZWCAD/AutoCAD, pero es una
+   conexión independiente — puede tener SAP2000 y el CAD abiertos a la
+   vez).
+3. Elija la fundación (grupo) en la lista. Se dibuja la planta con el
+   contorno real de sus shells, acotada, usando el espesor de la
+   propiedad de área asignada (auto-detectado; **siempre editable**, por
+   si la versión de SAP2000 no expone el espesor con la firma esperada).
+4. Elija el eje de corte (X o Y) y su posición — con botones **Centrar**
+   (centroide) y **En columna** (promedio de los nodos del grupo que no
+   pertenecen a ningún shell, típicamente el pedestal/columna) — para ver
+   la **elevación como corte real** de la geometría en ese punto. En
+   fundaciones no rectangulares o combinadas (forma L, por ejemplo), el
+   corte puede generar más de un tramo.
+5. Exporte a DXF o envíe a ZWCAD/AutoCAD igual que cualquier otro módulo.
+
+Supuesto de dibujo: la cota Z de los nodos del shell se toma como el
+**tope** de la fundación; la elevación se extruye hacia abajo el espesor
+leído/editado.
+
+## 9. Extensiones posibles
 
 - Plantillas de cajetín (rúbrica) y marco.
 - Más perfiles (HP, cañas, angulares dobles), placas de espera y conexiones

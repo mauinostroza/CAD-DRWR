@@ -224,6 +224,37 @@ def stirrup_pts(b: float, h: float, d: float, R_in: float) -> list:
              (bendB[0] - k * Lh, bendB[1] - k * Lh) ]
 
 
+def corte_poligono(pts, eje: str, valor: float) -> list:
+    """Corte real de un polígono simple (posiblemente no convexo) por la
+    recta x=valor (eje='x') o y=valor (eje='y').
+
+    Devuelve una lista de tramos (a, b) ordenados a lo largo del eje
+    transversal donde la recta atraviesa material del polígono — mismo
+    barrido de aristas + emparejado par-impar que usa `hatch_poly` para
+    una línea horizontal, generalizado al eje pedido sin rotar el
+    polígono. Un polígono con forma en L o combinada puede devolver más
+    de un tramo (huecos entre partes que la recta no atraviesa)."""
+    if len(pts) < 3:
+        return []
+    i_corte, i_transv = (0, 1) if eje == "x" else (1, 0)
+    cortes = []
+    j = len(pts) - 1
+    for i in range(len(pts)):
+        p1, p2 = pts[j], pts[i]
+        c1, c2 = p1[i_corte], p2[i_corte]
+        if (c1 <= valor < c2) or (c2 <= valor < c1):
+            t = (valor - c1) / (c2 - c1)
+            cortes.append(p1[i_transv] + t * (p2[i_transv] - p1[i_transv]))
+        j = i
+    cortes.sort()
+    tramos = []
+    for i in range(0, len(cortes) - 1, 2):
+        a, b = cortes[i], cortes[i + 1]
+        if b - a > TOL:
+            tramos.append((a, b))
+    return tramos
+
+
 def thread_zigzag(p0: PT, length: float, w: float, pitch: float,
                   layer=ir.L_ACERO) -> list:
     """Rosca esquemática de perno: zigzag a lo largo de +Y desde p0."""
