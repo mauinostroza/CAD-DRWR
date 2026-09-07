@@ -11,10 +11,11 @@ import os
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QLabel, QListWidget,
-                               QMainWindow, QMessageBox, QPushButton,
-                               QSplitter, QStackedWidget, QStatusBar,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout,
+                               QLabel, QListWidget, QMainWindow, QMessageBox,
+                               QProgressDialog, QPushButton, QSplitter,
+                               QStackedWidget, QStatusBar, QVBoxLayout,
+                               QWidget)
 
 from core import ir
 from cad.dxf_out import write_dxf
@@ -198,11 +199,36 @@ class MainWindow(QMainWindow):
                                  f"Parámetros inválidos:\n{exc}")
             return
 
+        self.statusBar().showMessage("Conectando con el CAD…")
+        QApplication.processEvents()
+        try:
+            app, pid = com_live.detectar()
+        except RuntimeError as exc:
+            self.statusBar().showMessage(str(exc))
+            QMessageBox.warning(self, "Enviar a CAD (COM)", str(exc))
+            return
+        except Exception as exc:
+            self.statusBar().showMessage("Error al conectar con el CAD.")
+            QMessageBox.critical(self, "Enviar a CAD (COM)",
+                                 f"No se pudo conectar:\n{exc}")
+            return
+        try:
+            doc = com_live.documento_activo(app)
+        except Exception as exc:
+            self.statusBar().showMessage("Error al conectar con el CAD.")
+            QMessageBox.critical(self, "Enviar a CAD (COM)",
+                                 f"No se pudo obtener el documento activo:\n{exc}")
+            return
+
         origen = None
         if self.a_pick.isChecked():
+            self.statusBar().showMessage(
+                "Haga clic en la ventana de ZWCAD/AutoCAD para ubicar el "
+                "dibujo (Esc para cancelar)…")
+            QApplication.processEvents()
             self.showMinimized()
             try:
-                origen = com_live.pedir_punto()
+                origen = com_live.pedir_punto(app=app, doc=doc)
             except RuntimeError as exc:
                 self.showNormal()
                 self.statusBar().showMessage(str(exc))
@@ -214,15 +240,32 @@ class MainWindow(QMainWindow):
                 return
             self.showNormal()
 
+        progreso = QProgressDialog("Enviando dibujo a CAD…", None, 0, 100, self)
+        progreso.setWindowTitle("Enviar a CAD (COM)")
+        progreso.setMinimumDuration(0)
+        progreso.setCancelButton(None)
+        progreso.setValue(0)
+        progreso.show()
+        QApplication.processEvents()
+
+        def _progreso(hechas, total):
+            progreso.setValue(int(100 * hechas / total) if total else 100)
+            QApplication.processEvents()
+
         try:
-            info = com_live.enviar_dibujo(dwg, origen=origen)
+            info = com_live.enviar_dibujo(dwg, origen=origen, app=app,
+                                          doc=doc, pid=pid,
+                                          progress_cb=_progreso)
         except RuntimeError as exc:
+            progreso.close()
             QMessageBox.warning(self, "Enviar a CAD (COM)", str(exc))
             return
         except Exception as exc:
+            progreso.close()
             QMessageBox.critical(self, "Enviar a CAD (COM)",
                                  f"Fallo el envío en vivo:\n{exc}")
             return
+        progreso.close()
         self.statusBar().showMessage(f"Enviado en vivo -> {info}")
         QMessageBox.information(self, "Enviar a CAD (COM)",
                                 f"Dibujo enviado en vivo:\n{info}")

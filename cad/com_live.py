@@ -79,6 +79,32 @@ def _documento(app, abrir=None):
     return app.Documents.Add()
 
 
+def documento_activo(app):
+    """Alias público de `_documento` para reutilizar la misma conexión
+    (`app`) entre `pedir_punto` y `enviar_dibujo` desde la UI."""
+    return _documento(app)
+
+
+def _traer_al_frente(app):
+    """Fuerza que la ventana del CAD pase al primer plano REAL de Windows
+    (z-order + foco de input), no solo "visible". `Visible=True`,
+    `WindowState` y `Activate()` (COM) pueden dejar la ventana visible
+    pero sin foco real si otra ventana (p.ej. la nuestra, recién
+    minimizada) seguía teniendo el foco un instante antes — en ese caso
+    el clic de `GetPoint` puede no llegar nunca al CAD. `HWnd` es una
+    propiedad estándar de `Application` en AutoCAD, replicada por ZWCAD
+    (API COM compatible, ver docstring del módulo)."""
+    try:
+        import win32con
+        import win32gui
+        hwnd = int(app.HWnd)
+        if win32gui.IsIconic(hwnd):
+            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(hwnd)
+    except Exception:
+        pass  # best-effort: ya se intentó Visible/WindowState/Activate antes
+
+
 def _pt(VARIANT, pythoncom, p, z=0.0):
     """Punto IR (x, y) -> VARIANT array 3D para la API COM."""
     return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8,
@@ -334,20 +360,33 @@ def _tabla_prims(tb: Table):
 
 # ------------------------------------------------------------- API pública --
 
-def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None) -> str:
+def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
+                  app=None, doc=None, pid=None, progress_cb=None) -> str:
     """Envía el dibujo IR a la sesión CAD abierta (COM en vivo).
 
     Si `abrir` es una ruta .dxf, en su lugar abre ese archivo en el CAD.
     Si `origen` es un punto (x, y), el dibujo se desplaza para que su
     origen local quede en ese punto (p.ej. el resultado de `pedir_punto`,
     un clic en pantalla del usuario).
+    `app`/`doc` permiten reutilizar una conexión COM ya establecida
+    (p.ej. la misma usada por `pedir_punto`) en vez de reconectar; si se
+    omiten, se detecta/abre una nueva.
+    `progress_cb(n_hechas, n_total)`, si se pasa, se invoca periódicamente
+    durante la emisión de entidades (para una barra de progreso en la UI).
     Devuelve un resumen legible para la barra de estado.
     """
     pythoncom, GetActiveObject, VARIANT = _com()
-    app, pid = detectar()
+    if app is None:
+        app, pid = detectar()
+    elif pid is None:
+        try:
+            pid = app.Name
+        except Exception:
+            pid = "CAD"
     pythoncom.CoInitialize()
     try:
-        doc = _documento(app, abrir)
+        if doc is None or abrir:
+            doc = _documento(app, abrir)
         _capas(doc)
 
         if origen is not None:
@@ -367,19 +406,26 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None) -> str:
 
         n = 0
         errs = 0
-        for e in prims:
+        total = len(prims)
+        paso = max(1, total // 40)   # ~40 actualizaciones de progreso
+        for i, e in enumerate(prims):
             if isinstance(e, Dim):
                 try:
                     _dim(msp, e, VPT)
                     n += 1
                 except Exception:
                     errs += 1
-                continue
-            try:
-                _emit(msp, e, VPT, VF, pythoncom, VARIANT)
-                n += 1
-            except Exception:
-                errs += 1
+            else:
+                try:
+                    _emit(msp, e, VPT, VF, pythoncom, VARIANT)
+                    n += 1
+                except Exception:
+                    errs += 1
+            if progress_cb is not None and (i % paso == 0 or i == total - 1):
+                try:
+                    progress_cb(i + 1, total)
+                except Exception:
+                    pass
 
         try:
             doc.Regen(1)
@@ -410,30 +456,43 @@ def abrir_dxf_en_cad(path: str) -> str:
     return enviar_dibujo(Drawing(), abrir=path)
 
 
-def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "):
+def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: ",
+                app=None, doc=None):
     """Activa el documento del CAD y pide al usuario un clic en pantalla
     (comando nativo GetPoint). Devuelve (x, y) en coordenadas de modelo
-    del CAD. Lanza RuntimeError si no hay CAD/documento o si se cancela
-    (Esc / botón derecho)."""
+    del CAD. Lanza RuntimeError si no hay CAD/documento, si se cancela
+    (Esc / botón derecho) o si la llamada COM falla por cualquier otro
+    motivo (se incluye el detalle real del error, no un mensaje genérico).
+
+    `app`/`doc` permiten reutilizar una conexión ya establecida (evita
+    reconectar/re-detectar innecesariamente cuando se llama junto con
+    `enviar_dibujo`, p.ej. desde `send_com` en la UI)."""
     pythoncom, GetActiveObject, VARIANT = _com()
-    app, pid = detectar()
+    if app is None:
+        app, _ = detectar()
     pythoncom.CoInitialize()
     try:
-        doc = _documento(app)
+        if doc is None:
+            doc = _documento(app)
         try:
             app.Visible = True
-            app.WindowState = 3  # acMax: trae la ventana del CAD al frente
+            app.WindowState = 3  # acMax: intento "suave" adicional
         except Exception:
             pass
         try:
             doc.Activate()
         except Exception:
             pass
+        _traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
         try:
             pt = doc.Utility.GetPoint(None, mensaje)
-        except Exception:
+        except Exception as exc:
             raise RuntimeError(
-                "No se especificó ningún punto (selección cancelada).")
+                "No se obtuvo el punto (¿se canceló con Esc, o falló la "
+                f"conexión con el CAD?): {exc}")
+        if not isinstance(pt, (list, tuple)) or len(pt) < 2:
+            raise RuntimeError(
+                f"El CAD devolvió un punto con formato inesperado: {pt!r}")
         return (float(pt[0]), float(pt[1]))
     finally:
         pythoncom.CoUninitialize()
