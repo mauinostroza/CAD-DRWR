@@ -210,6 +210,45 @@ def _dibujar_pedestal(d, pos, pedestal, f, layer=ir.L_ACERO):
     d.ents.append(Text((cx, cy), etiqueta, 2.0 * f, 0, ir.L_TXT, "c", "m"))
 
 
+def _posicion_corte(zapata, eje):
+    """Posición del corte que representa la fundación.
+
+    Se privilegia el eje de los pedestales; sin pedestal se usa el centro
+    geométrico del contorno.  La misma referencia se emplea en planta y en
+    la elevación, para que las marcas de corte sean trazables.
+    """
+    x0, x1, y0, y1 = _bbox(zapata["contorno"])
+    if zapata["pedestales"]:
+        idx = 0 if eje == "x" else 1
+        return sum(p["centro"][idx] for p in zapata["pedestales"]) / \
+            len(zapata["pedestales"])
+    return (x0 + x1) / 2.0 if eje == "x" else (y0 + y1) / 2.0
+
+
+def _dibujar_marcas_corte(d, zapata, f):
+    """Añade en planta las referencias A-A y B-B de las dos elevaciones."""
+    contorno = [(p[0], p[1]) for p in zapata["contorno"]]
+    x0, x1, y0, y1 = _bbox(contorno)
+    margen = 16.0 * f
+    etiqueta_off = 8.0 * f
+
+    # A-A: plano x = constante (elevación transversal en Y).
+    x = _posicion_corte(zapata, "x")
+    d.ents.append(ir.Line((x, y0 - margen), (x, y1 + margen), ir.L_EJE))
+    d.ents.append(Text((x, y1 + margen + etiqueta_off), "A", 2.2 * f,
+                       0, ir.L_EJE, "c", "b"))
+    d.ents.append(Text((x, y0 - margen - etiqueta_off), "A", 2.2 * f,
+                       0, ir.L_EJE, "c", "t"))
+
+    # B-B: plano y = constante (elevación transversal en X).
+    y = _posicion_corte(zapata, "y")
+    d.ents.append(ir.Line((x0 - margen, y), (x1 + margen, y), ir.L_EJE))
+    d.ents.append(Text((x0 - margen - etiqueta_off, y), "B", 2.2 * f,
+                       0, ir.L_EJE, "r", "m"))
+    d.ents.append(Text((x1 + margen + etiqueta_off, y), "B", 2.2 * f,
+                       0, ir.L_EJE, "l", "m"))
+
+
 def _dibujar_zapata_planta(d, db, zapata, f, th):
     """Dibuja la zapata en su posición real (coordenadas globales del
     modelo, sin recentrar ni trasladar). Devuelve el y mínimo alcanzado
@@ -220,12 +259,20 @@ def _dibujar_zapata_planta(d, db, zapata, f, th):
 
     for pedestal in zapata["pedestales"]:
         _dibujar_pedestal(d, pedestal["centro"], pedestal, f)
+    _dibujar_marcas_corte(d, zapata, f)
 
     xs_l = sorted(set(round(p[0], 1) for p in contorno))
     ys_l = sorted(set(round(p[1], 1) for p in contorno))
     lx0, lx1 = xs_l[0], xs_l[-1]
     ly0, ly1 = ys_l[0], ys_l[-1]
     cx = (lx0 + lx1) / 2.0
+
+    # El título queda al lado opuesto del acotado para que la planta pueda
+    # leerse como una vista independiente, incluso en grupos con zapatas
+    # cercanas entre sí.
+    d.ents.append(Text((cx, ly1 + 42 * f),
+                       f"{zapata['nombre']} — PLANTA", 3.0 * f,
+                       0, ir.L_TXT, "c", "b"))
 
     y_dim1 = ly0 - 30 * f
     if len(xs_l) > 2:
@@ -254,16 +301,10 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
     elevación sin traslape."""
     x0, x1, y0, y1 = _bbox(zapata["contorno"])
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
-    titulo = f"{zapata['nombre']} — CORTE EJE {'X' if eje == 'x' else 'Y'}"
-
-    if zapata["pedestales"]:
-        px = sum(p["centro"][0] for p in zapata["pedestales"]) / \
-            len(zapata["pedestales"])
-        py = sum(p["centro"][1] for p in zapata["pedestales"]) / \
-            len(zapata["pedestales"])
-    else:
-        px, py = cx, cy
-    pos_corte = px if eje == "x" else py
+    marca = "A-A" if eje == "x" else "B-B"
+    titulo = (f"{zapata['nombre']} — CORTE {marca} "
+              f"(EJE {'X' if eje == 'x' else 'Y'})")
+    pos_corte = _posicion_corte(zapata, eje)
 
     tramos = []   # (a, b, espesor)
     for a in zapata["areas"]:
