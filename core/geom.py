@@ -210,18 +210,24 @@ def weld_symbol(tip: PT, elbow: PT, h: float, layer=ir.L_SOLD) -> list:
 
 def stirrup_pts(b: float, h: float, d: float, R_in: float) -> list:
     """Recorrido (línea central) de un estribo cerrado con ganchos a 135°.
-    b, h: dimensiones exteriores del estribo; origen en esquina inf-izq."""
+    b, h: dimensiones exteriores del estribo; origen en esquina inf-izq.
+
+    El cierre queda centrado en la cara derecha. Los dos extremos entran al
+    núcleo y se cruzan, evitando el falso cierre en esquina que hacía que los
+    ganchos quedaran fuera del contorno en secciones angostas.
+    """
     Lh = max(6.0 * d, 75.0)                    # largo de gancho (6d >= 75)
     Rm = R_in + d / 2.0
     T135 = Rm * math.tan(math.radians(135 / 2.0))
-    T90 = Rm * math.tan(math.radians(45.0))
-    e = min(0.45 * min(b, h), max(0.8 * Lh, T135 + T90 + 5.0))
+    # Separación vertical suficiente para desarrollar ambos dobleces sin
+    # trasladar el cierre hacia una esquina.
+    e = min(0.42 * h, max(2.0 * T135 + d, 0.70 * Lh))
     k = 0.7071
-    bendA = (b - e, h)                          # gancho sobre cara superior
-    bendB = (b, h - e)                          # gancho sobre cara derecha
-    return [ (bendA[0] - k * Lh, bendA[1] - k * Lh), bendA,
-             (0, h), (0, 0), (b, 0), bendB,
-             (bendB[0] - k * Lh, bendB[1] - k * Lh) ]
+    upper = (b, h / 2.0 + e / 2.0)
+    lower = (b, h / 2.0 - e / 2.0)
+    return [(upper[0] - k * Lh, upper[1] + k * Lh), upper,
+            (b, h), (0, h), (0, 0), (b, 0), lower,
+            (lower[0] - k * Lh, lower[1] + k * Lh)]
 
 
 def corte_poligono(pts, eje: str, valor: float) -> list:

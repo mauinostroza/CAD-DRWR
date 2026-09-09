@@ -86,3 +86,25 @@ def tabla_pernos(pos, f: float, datos, title="CUADRO DE PERNOS DE ANCLAJE"):
     col_w = [w * f for w in [20, 24, 34, 30, 38, 56]]
     return ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=headers,
                     rows=datos, title=title, h_row=5.0 * f)
+
+
+def tabla_perno_pg(pos, f: float, p: dict) -> ir.Table:
+    """Tabla de fabricación vertical para el perno recto tipo PG."""
+    r = float(p["Le"])
+    proy = float(p["P"])
+    rows = [
+        ["DIÁMETRO DE PERNO", "d", f'{float(p["d_perno"]):g}'],
+        ["TIPO DE HILO", "", str(p.get("tipo_hilo", "8UN"))],
+        ["LARGO DE HILO", "h1", ir.fmt_mm(float(p.get("h1", 150)))],
+        ["LARGO DE HILO", "h2", ir.fmt_mm(float(p.get("h2", 75)))],
+        ["TAMAÑO GOLILLA", "W", ir.fmt_mm(float(p.get("W", 75)))],
+        ["ESPESOR GOLILLA", "t", ir.fmt_mm(float(p.get("t_golilla", 20)))],
+        ["", "b", ir.fmt_mm(float(p.get("b_golilla", 50)))],
+        ["EMPOTRAMIENTO", "R", ir.fmt_mm(r)],
+        ["PROYECCIÓN", "P", ir.fmt_mm(proy)],
+        ["LARGO PERNO", "L", ir.fmt_mm(r + proy)],
+        ["CANTIDAD", "", str(int(p.get("n", p.get("n_pernos", 1))))],
+    ]
+    return ir.Table(pos=pos, col_w=[58 * f, 13 * f, 22 * f],
+                    row_h=10.0 * f, rows=rows, title='PERNO TIPO "PG"',
+                    h_row=3.0 * f)

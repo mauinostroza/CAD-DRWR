@@ -3,7 +3,8 @@ import math
 import unittest
 
 from core.bounds import drawing_bounds
-from core.ir import Dim, Leader, Line, Text
+from core.ir import Dim, Leader, Line, Poly, Table, Text
+from core.geom import stirrup_pts
 from generators.foundation_sap import build_foundation
 from generators import MODULES
 from generators.data import factor_escala
@@ -50,6 +51,32 @@ class GeneratorSmokeTests(unittest.TestCase):
         drawing = pedestal.builder(params)
         height = drawing_bounds(drawing)[3] - drawing_bounds(drawing)[1]
         self.assertLess(height, 3500)
+
+    def test_stirrup_closes_contour_with_centered_inward_hooks(self):
+        pts = stirrup_pts(220, 320, 8, 20)
+        perimeter = pts[1:-1]
+        self.assertEqual(min(x for x, _ in perimeter), 0)
+        self.assertEqual(max(x for x, _ in perimeter), 220)
+        self.assertEqual(min(y for _, y in perimeter), 0)
+        self.assertEqual(max(y for _, y in perimeter), 320)
+        # Ambos extremos quedan dentro del estribo y el cierre en la cara.
+        self.assertLess(pts[0][0], 220)
+        self.assertLess(pts[-1][0], 220)
+        self.assertEqual(pts[1][0], 220)
+        self.assertEqual(pts[-2][0], 220)
+
+    def test_pg_bolt_has_fabrication_table_and_square_washer(self):
+        bolt = next(m for m in MODULES if m.prefix == "perno_anclaje")
+        params = default_params(bolt.panel)
+        drawing = bolt.builder(params)
+        tables = [e for e in drawing.ents if isinstance(e, Table)]
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0].title, 'PERNO TIPO "PG"')
+        symbols = [row[1] for row in tables[0].rows]
+        self.assertEqual(symbols, ["d", "", "h1", "h2", "W", "t", "b",
+                                   "R", "P", "L", ""])
+        self.assertTrue(any(isinstance(e, Poly) and e.layer == "ACERO"
+                            and e.closed for e in drawing.ents))
 
     def test_foundation_views_are_identified_and_dimensioned(self):
         """Las referencias de corte deben corresponder a las elevaciones."""
