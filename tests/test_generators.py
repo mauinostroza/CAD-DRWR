@@ -27,6 +27,10 @@ def default_params(panel_class):
 class GeneratorSmokeTests(unittest.TestCase):
     def test_all_default_drawings_have_valid_bounds(self):
         for module in MODULES:
+            if not hasattr(module.panel, "SPEC"):
+                # Fundación SAP requiere conexión/una geometría explícita;
+                # se cubre con su caso de datos más abajo.
+                continue
             with self.subTest(module=module.nombre):
                 drawing = module.builder(default_params(module.panel))
                 bounds = drawing_bounds(drawing)
@@ -54,16 +58,19 @@ class GeneratorSmokeTests(unittest.TestCase):
 
     def test_stirrup_closes_contour_with_centered_inward_hooks(self):
         pts = stirrup_pts(220, 320, 8, 20)
-        perimeter = pts[1:-1]
-        self.assertEqual(min(x for x, _ in perimeter), 0)
-        self.assertEqual(max(x for x, _ in perimeter), 220)
-        self.assertEqual(min(y for _, y in perimeter), 0)
-        self.assertEqual(max(y for _, y in perimeter), 320)
+        from core.geom import poly_bar
+        from core.ir import Drawing
+        rendered, _ = poly_bar(pts, 8, 20)
+        x0, y0, x1, y1 = drawing_bounds(Drawing(ents=rendered))
+        self.assertAlmostEqual(x0, 0)
+        self.assertAlmostEqual(x1, 220)
+        self.assertAlmostEqual(y0, 0)
+        self.assertAlmostEqual(y1, 320)
         # Ambos extremos quedan dentro del estribo y el cierre en la cara.
         self.assertLess(pts[0][0], 220)
         self.assertLess(pts[-1][0], 220)
-        self.assertEqual(pts[1][0], 220)
-        self.assertEqual(pts[-2][0], 220)
+        self.assertLess(pts[0][1], 320)
+        self.assertLess(pts[-1][1], 320)
 
     def test_pg_bolt_has_fabrication_table_and_square_washer(self):
         bolt = next(m for m in MODULES if m.prefix == "perno_anclaje")
@@ -74,7 +81,7 @@ class GeneratorSmokeTests(unittest.TestCase):
         self.assertEqual(tables[0].title, 'PERNO TIPO "PG"')
         symbols = [row[1] for row in tables[0].rows]
         self.assertEqual(symbols, ["d", "", "h1", "h2", "W", "t", "b",
-                                   "R", "P", "L", ""])
+                                   "R", "P", "L", "n"])
         self.assertTrue(any(isinstance(e, Poly) and e.layer == "ACERO"
                             and e.closed for e in drawing.ents))
 

@@ -18,6 +18,7 @@ OFF_K = 0.70     # separación del texto sobre la línea de cota
 
 def uses_outside_arrows(d: Dim, th: float) -> bool:
     """Indica si una cota no tiene espacio para texto y flechas interiores."""
+    th = d.text_height or th
     span = (abs(d.p2[1] - d.p1[1]) if d.vertical
             else abs(d.p2[0] - d.p1[0]))
     txt = d.txt or ir.fmt_mm(span)
@@ -40,15 +41,12 @@ class DimBuilder:
         """Cadena de cotas horizontales entre xs consecutivos."""
         texts = texts or [None] * (len(xs) - 1)
         y_ext_from = ext_from if ext_from is not None else y_geom
-        for x in xs:
-            ya = y_ext_from + (self.g0 if y_dim > y_geom else -self.g0)
-            yb = y_dim + (self.ov if y_dim > y_geom else -self.ov)
-            self.ents.append(Line((x, ya), (x, yb), ir.L_ACOT))
         for i in range(len(xs) - 1):
             t = texts[i] if i < len(texts) else None
-            self.ents.append(Dim((xs[i], y_geom), (xs[i + 1], y_geom),
+            self.ents.append(Dim((xs[i], y_ext_from), (xs[i + 1], y_ext_from),
                                  ((xs[i] + xs[i + 1]) / 2.0, y_dim),
-                                 txt=t if t is not None else fmt(abs(xs[i + 1] - xs[i]))))
+                                 txt=t if t is not None else fmt(abs(xs[i + 1] - xs[i])),
+                                 text_height=self.th))
 
     def h_total(self, x1: float, x2: float, y_geom: float, y_dim: float,
                 fmt=ir.fmt_mm, txt=None, ext_from=None, texts=None):
@@ -62,16 +60,13 @@ class DimBuilder:
                 fmt=ir.fmt_mm, texts=None, ext_from=None):
         texts = texts or [None] * (len(ys) - 1)
         x_ext_from = ext_from if ext_from is not None else x_geom
-        for y in ys:
-            xa = x_ext_from + (self.g0 if x_dim > x_geom else -self.g0)
-            xb = x_dim + (self.ov if x_dim > x_geom else -self.ov)
-            self.ents.append(Line((xa, y), (xb, y), ir.L_ACOT))
         for i in range(len(ys) - 1):
             t = texts[i] if i < len(texts) else None
-            self.ents.append(Dim((x_geom, ys[i]), (x_geom, ys[i + 1]),
+            self.ents.append(Dim((x_ext_from, ys[i]), (x_ext_from, ys[i + 1]),
                                  (x_dim, (ys[i] + ys[i + 1]) / 2.0),
                                  vertical=True,
-                                 txt=t if t is not None else fmt(abs(ys[i + 1] - ys[i]))))
+                                 txt=t if t is not None else fmt(abs(ys[i + 1] - ys[i])),
+                                 text_height=self.th))
 
     def v_total(self, y1: float, y2: float, x_geom: float, x_dim: float,
                 fmt=ir.fmt_mm, txt=None, ext_from=None, texts=None):
@@ -85,6 +80,7 @@ class DimBuilder:
 
 def dim_parts(d: Dim, th: float) -> list:
     """Descompone una cota en entidades básicas para la vista previa."""
+    th = d.text_height or th
     asz = AR_K * th
     ov = OV_K * th
     g0 = GAP_K * th

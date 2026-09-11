@@ -15,6 +15,7 @@ from core import ir
 from core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
                      Table, Drawing)
 from core.dims import uses_outside_arrows
+from core.annotations import leader_parts, table_parts
 
 _AL = {"l": 0, "c": 1, "r": 2}
 _VA = {"b": 1, "m": 2, "t": 3}
@@ -78,6 +79,9 @@ def write_dxf(dwg: Drawing, path: str) -> None:
 
 def _infer_th(dwg: Drawing) -> float:
     for e in dwg.ents:
+        if isinstance(e, Dim) and e.text_height > 0:
+            return e.text_height
+    for e in dwg.ents:
         if isinstance(e, Text) and e.h > 0:
             return e.h
     return 15.0
@@ -110,6 +114,8 @@ def _write_ent(msp, e) -> None:
         msp.add_arc(e.c, e.r, a1, a2, dxfattribs={"layer": e.layer})
 
     elif isinstance(e, Poly):
+        if len(e.pts) < 2:
+            return
         if e.width > 0:
             msp.add_lwpolyline(e.pts, close=e.closed,
                                dxfattribs={"layer": e.layer,
@@ -131,10 +137,13 @@ def _write_ent(msp, e) -> None:
     elif isinstance(e, Dim):
         ang = 90.0 if e.vertical else 0.0
         dxf = {"layer": e.layer}
-        override = None
-        if uses_outside_arrows(e, _dimension_text_height(msp)):
-            # DIMATFIT=1 prioriza flechas exteriores y conserva texto legible.
-            override = {"dimatfit": 1}
+        th = e.text_height or _dimension_text_height(msp)
+        override = {"dimtxt": th, "dimasz": 0.85 * th, "dimexe": 0.45 * th,
+                    "dimexo": 0.30 * th, "dimgap": 0.70 * th,
+                    "dimtad": 1, "dimtih": 0, "dimtoh": 0,
+                    "dimtofl": 1, "dimsoxd": 0, "dimscale": 1.0}
+        if uses_outside_arrows(e, th):
+            override["dimatfit"] = 1
         dim = msp.add_linear_dim(base=e.base, p1=e.p1, p2=e.p2, angle=ang,
                                  text=e.txt if e.txt else "<>",
                                  dimstyle="ING", override=override,
@@ -142,16 +151,8 @@ def _write_ent(msp, e) -> None:
         dim.render()
 
     elif isinstance(e, Leader):
-        msp.add_line(e.tip, e.elbow, dxfattribs={"layer": e.layer})
-        if e.shelf > 0:
-            p2 = (e.elbow[0] + e.side * e.shelf, e.elbow[1])
-            msp.add_line(e.elbow, p2, dxfattribs={"layer": e.layer})
-        else:
-            p2 = e.elbow
-        halign = "l" if e.side > 0 else "r"
-        t = msp.add_text(e.s, dxfattribs={"style": "ING", "height": e.h,
-                                          "layer": e.layer})
-        t.set_placement(p2, align=_align(halign, "b"))
+        for part in leader_parts(e):
+            _write_ent(msp, part)
 
     elif isinstance(e, Table):
         _write_table(msp, e)
@@ -177,77 +178,8 @@ def _solid_circle(msp, c, r, layer):
 
 
 def _write_table(msp, tb: Table) -> None:
-    x0, y0 = tb.pos
-    th = tb.h_row
-    n_rows = len(tb.rows) + (1 if tb.header else 0)
-    total_w = sum(tb.col_w)
-    h_total = n_rows * tb.row_h
-    y_top = y0
-    y_hdr = y_top - (tb.row_h if tb.header else 0)
-    y_end = y_hdr - len(tb.rows) * tb.row_h
-
-    # título centrado sobre la tabla
-    if tb.title:
-        msp.add_text(tb.title, dxfattribs={
-            "style": "ING", "height": th * 1.15, "layer": ir.L_TABLA}
-        ).set_placement((x0 + total_w / 2.0, y_top + 0.6 * th * 1.15),
-                        align=TextEntityAlignment.BOTTOM_CENTER)
-
-    # contorno
-    msp.add_lwpolyline([(x0, y_top), (x0 + total_w, y_top),
-                        (x0 + total_w, y_end), (x0, y_end)], close=True,
-                       dxfattribs={"layer": ir.L_TABLA})
-    # línea bajo encabezado
-    if tb.header:
-        msp.add_line((x0, y_hdr), (x0 + total_w, y_hdr),
-                     dxfattribs={"layer": ir.L_TABLA})
-
-    # líneas verticales
-    x = x0
-    for w in tb.col_w[:-1]:
-        x += w
-        msp.add_line((x, y_top), (x, y_end), dxfattribs={"layer": ir.L_TABLA})
-
-    # textos de encabezado (posible doble línea con \n)
-    if tb.header:
-        x = x0
-        for i, w in enumerate(tb.col_w):
-            lines = tb.header[i].split("\n")
-            n = len(lines)
-            for k, s in enumerate(lines):
-                yc = y_hdr - tb.row_h * (k + 1) / (n + 1)
-                msp.add_text(s, dxfattribs={"style": "ING", "height": th,
-                                            "layer": ir.L_TABLA}
-                             ).set_placement((x + w / 2.0, yc),
-                                             align=TextEntityAlignment.MIDDLE_CENTER)
-            x += w
-
-    # filas de datos
-    for r, row in enumerate(tb.rows):
-        ytr = y_hdr - r * tb.row_h           # techo de la fila
-        if r > 0:
-            msp.add_line((x0, ytr), (x0 + total_w, ytr),
-                         dxfattribs={"layer": ir.L_TABLA})
-        x = x0
-        for c, w in enumerate(tb.col_w):
-            if (r, c) in tb.sketches:
-                scale = _sketch_scale(tb.sketches[(r, c)], w * 0.8,
-                                      tb.row_h * 0.62)
-                cx = x + w / 2.0
-                cy = ytr - tb.row_h / 2.0
-                for se in tb.sketches[(r, c)]:
-                    _write_ent(msp, _place(se, cx, cy, scale))
-            elif c < len(row) and row[c]:
-                txt = row[c]
-                ha = TextEntityAlignment.MIDDLE_CENTER
-                if c == len(row) - 1 and txt.startswith("Σ"):
-                    ha = TextEntityAlignment.MIDDLE_RIGHT
-                msp.add_text(txt, dxfattribs={"style": "ING",
-                                              "height": th,
-                                              "layer": ir.L_TABLA}
-                             ).set_placement((x + w / 2.0, ytr - tb.row_h / 2.0),
-                                             align=ha)
-            x += w
+    for part in table_parts(tb):
+        _write_ent(msp, part)
 
 
 def _sketch_scale(ents, max_w: float, max_h: float) -> float:

@@ -101,6 +101,15 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
 
     Devuelve (entidades, longitud_de_desarrollo_en_mm).
     """
+    # Las formas llegan también desde cuadros de despiece opcionales. Una
+    # entrada vacía es una forma vacía, no un IndexError durante el render.
+    if pts is None or len(pts) == 0:
+        return [], 0.0
+    if not math.isfinite(float(d)) or d <= 0:
+        raise ValueError("el diámetro de barra debe ser positivo")
+    if not math.isfinite(float(R_in)) or R_in < 0:
+        raise ValueError("el radio interior de doblez no puede ser negativo")
+
     # depura puntos repetidos
     clean = [pts[0]]
     for p in pts[1:]:
@@ -111,10 +120,17 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
         return [], 0.0
 
     Rm = R_in + d / 2.0
-    ents: list = []
-    dev = 0.0
-    cur = pts[0]                       # punto actual del recorrido recortado
+    if len(pts) == 2:
+        L = dist(pts[0], pts[1])
+        return [Line(pts[0], pts[1], layer, width)], L
 
+    # Calcula primero todos los recortes. El algoritmo anterior recortaba un
+    # tramo al 45% cuando no cabía el radio; eso dejaba el arco con centro y
+    # extremos incompatibles, una discontinuidad que además contaminaba el
+    # desarrollo. Aquí el radio pedido se conserva y se valida el recorrido
+    # completo antes de emitir entidades.
+    corners = []
+    trim = [0.0] * len(pts)
     for i in range(1, len(pts) - 1):
         v = pts[i]
         p_prev, p_next = pts[i - 1], pts[i + 1]
@@ -129,10 +145,26 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
         th = math.atan2(cr, dt)                      # ángulo con signo
         if abs(th) < math.radians(0.5):              # prácticamente recta
             continue
-        th = max(-math.radians(160), min(math.radians(160), th))
+        if abs(th) >= math.radians(179.0):
+            raise ValueError("doblez casi de 180 grados no es resoluble")
         Rm_i = Rm
         T = Rm_i * math.tan(abs(th) / 2.0)
-        T = min(T, 0.45 * l1, 0.45 * l2)             # nunca excede los tramos
+        corners.append((i, ux, uy, wx, wy, cr, th, T))
+        trim[i] = T
+
+    for i in range(len(pts) - 1):
+        available = dist(pts[i], pts[i + 1])
+        used = trim[i] + trim[i + 1]
+        if used > available + TOL:
+            raise ValueError(
+                "el radio solicitado no cabe en el tramo "
+                f"{i + 1}: requiere {used:.3f} mm y hay {available:.3f} mm")
+
+    ents: list = []
+    dev = 0.0
+    cur = pts[0]                       # punto actual del recorrido recortado
+    for i, ux, uy, wx, wy, cr, th, T in corners:
+        v = pts[i]
         t_in = (v[0] - T * ux, v[1] - T * uy)
         t_out = (v[0] + T * wx, v[1] + T * wy)
         # centro: a Rm del lado interior del doblez
@@ -209,25 +241,42 @@ def weld_symbol(tip: PT, elbow: PT, h: float, layer=ir.L_SOLD) -> list:
 
 
 def stirrup_pts(b: float, h: float, d: float, R_in: float) -> list:
-    """Recorrido (línea central) de un estribo cerrado con ganchos a 135°.
-    b, h: dimensiones exteriores del estribo; origen en esquina inf-izq.
+    """Recorrido de línea central de un estribo proyectado cerrado.
 
-    El cierre queda centrado en la cara derecha. Los dos extremos entran al
-    núcleo y se cruzan, evitando el falso cierre en esquina que hacía que los
-    ganchos quedaran fuera del contorno en secciones angostas.
+    ``b`` y ``h`` son las dimensiones exteriores de la línea central, con
+    origen en la esquina inferior izquierda.  La barra recorre el perímetro
+    completo con cierre en esquina superior derecha. Los dos ganchos de
+    135° envuelven la misma esquina y sus colas son paralelas hacia el núcleo.
+
+    Cada tramo terminal se entrega a :func:`poly_bar` con ``Lh + T135``. El
+    recorte tangente consume ``T135`` y deja exactamente ``Lh`` recto y libre;
+    por ello no se acorta el gancho para hacer caber el radio.
     """
+    if not all(math.isfinite(float(v)) for v in (b, h, d, R_in)):
+        raise ValueError("las dimensiones del estribo deben ser finitas")
+    if b <= 0 or h <= 0:
+        raise ValueError("las dimensiones del estribo deben ser positivas")
+    if d <= 0 or R_in < 0:
+        raise ValueError("el diámetro y radio del estribo no son válidos")
     Lh = max(6.0 * d, 75.0)                    # largo de gancho (6d >= 75)
     Rm = R_in + d / 2.0
     T135 = Rm * math.tan(math.radians(135 / 2.0))
-    # Separación vertical suficiente para desarrollar ambos dobleces sin
-    # trasladar el cierre hacia una esquina.
-    e = min(0.42 * h, max(2.0 * T135 + d, 0.70 * Lh))
-    k = 0.7071
-    upper = (b, h / 2.0 + e / 2.0)
-    lower = (b, h / 2.0 - e / 2.0)
-    return [(upper[0] - k * Lh, upper[1] + k * Lh), upper,
-            (b, h), (0, h), (0, 0), (b, 0), lower,
-            (lower[0] - k * Lh, lower[1] + k * Lh)]
+    if h < 2 * Rm - TOL:
+        raise ValueError("altura insuficiente para estribo y ganchos a 135 grados")
+    k = math.sqrt(0.5)
+    tail = Lh + T135
+    # Los vértices son intersecciones VIRTUALES de tangentes. Desplazarlos
+    # T135-Rm sitúa ambos centros de arco en (b-Rm,h-Rm), sin círculos en
+    # mitad de la cara ni ganchos que dejen las barras de esquina fuera.
+    if b < max(2 * Rm, k * tail) - TOL:
+        raise ValueError("ancho insuficiente para los ganchos de 135 grados")
+    if h < k * tail - TOL:
+        raise ValueError("altura insuficiente para los ganchos de 135 grados")
+    v_top = (b + T135 - Rm, h)
+    v_right = (b, h + T135 - Rm)
+    return [(v_top[0] - k * tail, v_top[1] - k * tail), v_top,
+            (0, h), (0, 0), (b, 0), v_right,
+            (v_right[0] - k * tail, v_right[1] - k * tail)]
 
 
 def corte_poligono(pts, eje: str, valor: float) -> list:

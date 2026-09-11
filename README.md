@@ -80,15 +80,34 @@ Requisitos y notas:
 
 El dibujo se genera a escala 1:1 en milímetros. El parámetro *Escala de
 acotado* (1:10 … 1:100) multiplica la altura de textos, cotas y símbolos
-para que al imprimir la hoja midan lo correcto (texto base 3 mm en papel).
-La geometría no cambia.
+con un factor relativo a 1:10. La geometría no cambia; la altura base de
+anotación depende del módulo. Comprueba la escala de impresión en CAD.
+
+### Referencias PG y pedestal
+
+En **Pedestal**, selecciona **Referencia 20** para cargar la sección de
+550 × 400 mm con 7 barras superiores, 7 inferiores y 3 intermedias en
+cada lateral. **Por caras** permite editar esas cantidades. Los lazos
+interiores, la elevación y el cuadro de despiece se activan por separado.
+Los ganchos cierran en las esquinas, hacia el núcleo; se rechazan radios
+que no caben en la geometría solicitada.
+
+El perno **PG** parte del ejemplo de 1 pulgada, hilo 8UN, R=850, P=400,
+L=1250 y cantidad 48. El detalle y su tabla usan los mismos parámetros.
+Las cotas, tablas y llamadas comparten geometría entre vista previa, DXF
+y COM; la apariencia tipográfica puede variar con las fuentes del CAD.
+
+Muestras: [pedestal](samples/pedestal_referencia.png) y
+[perno PG](samples/pg_referencia.png), con sus DXF en `samples`.
+Se regeneran con `QT_QPA_PLATFORM=offscreen python scripts/render_reference_details.py`.
+La comprobación en ZWCAD requiere Windows y una sesión CAD abierta.
 
 ## 3. Módulos
 
 | Módulo | Genera |
 |--------|--------|
 | **Placa Base** | Planta (placa, perforaciones, pernos, ejes) + elevación (columna W, grout, cartelas, soldaduras, N.P.) + detalle del perno + cuadro de pernos. Acotado en dos niveles. Los perfiles W y dimensiones de placa se auto-sugieren. |
-| **Pedestal** | Sección transversal con barras longitudinales, estribo cerrado con ganchos a 135°, tirantes, hachurado y recubrimiento + elevación con arranques ganchados en zapata + cuadro de despiece con pesos. |
+| **Pedestal** | Sección con distribución por caras, estribo y lazos interiores con ganchos a 135°, cotas exteriores y recubrimiento; elevación y cuadro de despiece opcionales. |
 | **Losa** | Sección transversal con armadura inferior ganchada en apoyos, repartición, armadura superior opcional, hachurado, acotado y despiece. |
 | **Perno de Anclaje** | Detalle de perno tipo L (codo 90°), J (gancho 135°) o recto con placa de anclaje: rosca, tuerca, arandela, concreto, N.P. y cuadro de pernos. |
 | **Perfil Estructural** | Secciones I/W, H (HEA), canal C, ángulo L, T y caja HSS con acotado completo, ejes y propiedades aproximadas (área y peso lineal). Series comerciales W/HE precargadas. |

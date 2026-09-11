@@ -18,6 +18,7 @@ from core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
                      Table)
 from core.dims import dim_parts
 from core.bounds import drawing_bounds
+from core.annotations import expand_annotations
 
 BG = QColor("#23272e")
 LAYER_QCOLOR = {
@@ -128,10 +129,7 @@ class PreviewWidget(QWidget):
         def X(x): return (x - cx) * s + self.width() / 2
         def Y(y): return self.height() / 2 - (y - cy) * s
 
-        for e in self.dwg.ents:
-            if isinstance(e, Table):
-                _draw_table(p, e, X, Y, s)
-                continue
+        for e in expand_annotations(self.dwg.ents):
             col = QColor(LAYER_QCOLOR.get(e.layer, "#ffffff"))
             w = LAYER_WIDTH.get(e.layer, 1.0)
             if isinstance(e, Line):
@@ -139,6 +137,8 @@ class PreviewWidget(QWidget):
                 p.drawLine(QPointF(X(e.p1[0]), Y(e.p1[1])),
                            QPointF(X(e.p2[0]), Y(e.p2[1])))
             elif isinstance(e, Poly):
+                if not e.pts:
+                    continue
                 p.setPen(_pen(col, w, e.layer, e.width))
                 path = QPainterPath(QPointF(X(e.pts[0][0]), Y(e.pts[0][1])))
                 for pt in e.pts[1:]:
@@ -274,83 +274,3 @@ def _draw_text(p: QPainter, e: Text, X, Y, s):
         ry, rh, fl_v = -M / 2, M, Qt.AlignVCenter
     p.drawText(QRectF(rx, ry, rw, rh), fl_h | fl_v, e.s)
     p.restore()
-
-
-def _draw_table(p: QPainter, tb: Table, X, Y, s):
-    x0, y0 = tb.pos                      # esquina sup. izq. en mm
-    col_x = [X(x0)]
-    x = x0
-    for w in tb.col_w:
-        x += w
-        col_x.append(X(x))
-    y_top = Y(y0)
-    y_hdr_mm = y0 - (tb.row_h if tb.header else 0)
-    y_hdr = Y(y_hdr_mm)
-    y_end = Y(y_hdr_mm - len(tb.rows) * tb.row_h)
-    col = QColor(LAYER_QCOLOR[ir.L_TABLA])
-    pen = _pen(col, 1.2, ir.L_TABLA)
-    p.setPen(pen)
-    p.setBrush(Qt.NoBrush)
-    p.drawRect(QRectF(col_x[0], y_top, col_x[-1] - col_x[0], y_end - y_top))
-    if tb.title:
-        sub = Text((x0 + sum(tb.col_w) / 2,
-                    y0 + (tb.h_row or tb.row_h * 0.4) * 1.1),
-                   tb.title, (tb.h_row or tb.row_h * 0.4) * 1.15,
-                   0, ir.L_TABLA, "c", "b")
-        _draw_text(p, sub, X, Y, s)
-    if tb.header:
-        p.drawLine(QPointF(col_x[0], y_hdr), QPointF(col_x[-1], y_hdr))
-    for cx in col_x[1:-1]:
-        p.drawLine(QPointF(cx, y_top), QPointF(cx, y_end))
-    # encabezados
-    if tb.header:
-        for i, w in enumerate(tb.col_w):
-            lines = tb.header[i].split("\n")
-            xc_mm = x0 + sum(tb.col_w[:i]) + tb.col_w[i] / 2
-            for k, line_s in enumerate(lines):
-                yy = y0 - tb.row_h * (k + 1) / (len(lines) + 1)
-                sub = Text((xc_mm, yy), line_s, tb.h_row, 0,
-                           ir.L_TABLA, "c", "m")
-                _draw_text(p, sub, X, Y, s)
-    # filas de datos
-    for r, row in enumerate(tb.rows):
-        ytr_mm = y_hdr_mm - r * tb.row_h
-        ytr = Y(ytr_mm)
-        if r > 0:
-            p.drawLine(QPointF(col_x[0], ytr), QPointF(col_x[-1], ytr))
-        for c, w in enumerate(tb.col_w):
-            xc_mm = x0 + sum(tb.col_w[:c]) + tb.col_w[c] / 2
-            if (r, c) in tb.sketches:
-                _draw_sketch(p, tb.sketches[(r, c)], X(xc_mm),
-                             Y(ytr_mm - tb.row_h / 2),
-                             tb.col_w[c] * s * 0.8, tb.row_h * s * 0.62)
-            elif c < len(row) and row[c]:
-                sub = Text((xc_mm, ytr_mm - tb.row_h / 2), row[c],
-                           tb.h_row, 0, ir.L_TABLA, "c", "m")
-                _draw_text(p, sub, X, Y, s)
-
-
-def _draw_sketch(p, ents, cx_px, cy_px, max_w_px, max_h_px):
-    pts = []
-    for e in ents:
-        pts.extend(_ent_pts(e))
-    if not pts:
-        return
-    xs = [q[0] for q in pts]
-    ys = [q[1] for q in pts]
-    w = max(max(xs) - min(xs), 1e-6)
-    h = max(max(ys) - min(ys), 1e-6)
-    sc = min(max_w_px / w, max_h_px / h, 60.0)
-    for e in ents:
-        col = QColor(LAYER_QCOLOR.get(e.layer, "#fff"))
-        if isinstance(e, Line):
-            p.setPen(_pen(col, 1.4))
-            p.drawLine(QPointF(cx_px + e.p1[0] * sc, cy_px - e.p1[1] * sc),
-                       QPointF(cx_px + e.p2[0] * sc, cy_px - e.p2[1] * sc))
-        elif isinstance(e, Arc):
-            r = e.r * sc
-            sweep = _sweep(e)
-            p.setPen(_pen(col, 1.4))
-            rect = QRectF(cx_px + e.c[0] * sc - r, cy_px - e.c[1] * sc - r,
-                          2 * r, 2 * r)
-            p.drawArc(rect, int(round(e.a1 * 16)), int(round(sweep * 16)))

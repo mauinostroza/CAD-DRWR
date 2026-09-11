@@ -105,6 +105,7 @@ class Dim:
     vertical: bool = False
     layer: str = L_ACOT
     txt: Optional[str] = None      # texto ya formateado (unidades incluidas)
+    text_height: float = 0.0       # altura propia; 0 conserva lectura legacy
 
 
 @dataclass
@@ -133,6 +134,8 @@ class Table:
     title: str = ""
     h_row: float = 0.0             # altura de texto celdas (0 -> auto)
     sketches: dict = field(default_factory=dict)
+    title_boxed: bool = False      # título dentro de una fila superior común
+    col_align: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -191,14 +194,15 @@ def translate(dwg: Drawing, dx: float, dy: float) -> Drawing:
             return Text(tp(e.pos), e.s, e.h, e.rot, e.layer, e.ha, e.va)
         if isinstance(e, Dim):
             return Dim(tp(e.p1), tp(e.p2), tp(e.base), e.vertical, e.layer,
-                       e.txt)
+                       e.txt, e.text_height)
         if isinstance(e, Leader):
             return Leader(tp(e.tip), tp(e.elbow), e.s, e.h, e.layer,
                          e.shelf, e.side)
         if isinstance(e, Table):
             return Table(tp(e.pos), list(e.col_w), e.row_h,
                         list(e.header), [list(r) for r in e.rows],
-                        e.title, e.h_row, dict(e.sketches))
+                        e.title, e.h_row, dict(e.sketches), e.title_boxed,
+                        list(e.col_align))
         return e
 
     return Drawing(dwg.title, [te(e) for e in dwg.ents])

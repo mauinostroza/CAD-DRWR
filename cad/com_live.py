@@ -264,12 +264,26 @@ def _flat(VARIANT, pythoncom, pts):
 # ------------------------------------------------------------- capas --
 
 def _capas(doc):
+    from cad.dxf_out import _LW
     for name, aci in ir.LAYER_COLORS.items():
         try:
-            ly = doc.Layers.Add(name)
-            ly.Color = int(aci)
+            ly = doc.Layers.Item(name)
         except Exception:
-            continue
+            ly = doc.Layers.Add(name)
+        try:
+            ly.Color = int(aci)
+            ly.Lineweight = _LW.get(name, 25)
+        except Exception:
+            pass
+    try:
+        try:
+            style = doc.TextStyles.Item("CAD_DRWR_ING")
+        except Exception:
+            style = doc.TextStyles.Add("CAD_DRWR_ING")
+        style.FontFile = "txt.shx"
+        style.Height = 0.0
+    except Exception:
+        pass
     for lt in ("CENTER", "HIDDEN"):
         try:
             doc.Linetypes.Load(lt)
@@ -288,7 +302,9 @@ def _vars_cota(doc, dwg):
     th = _infer_th(dwg)
     pares = [
         ("DIMTXT", th), ("DIMASZ", 0.85 * th), ("DIMEXE", 0.45 * th),
-        ("DIMEXO", 0.30 * th), ("DIMGAP", 0.35 * th), ("DIMTAD", 1),
+        ("DIMEXO", 0.30 * th), ("DIMGAP", 0.70 * th), ("DIMTAD", 1),
+        ("DIMTIH", 0), ("DIMTOH", 0), ("DIMSCALE", 1.0),
+        ("DIMTOFL", 1), ("DIMSOXD", 0),
         ("DIMJUST", 0), ("DIMDEC", 0), ("DIMZIN", 8), ("DIMLUNIT", 2),
         ("LTSCALE", _infer_ltscale(dwg)),
     ]
@@ -311,6 +327,10 @@ _ALTXT = {
 
 def _texto(msp, e, VPT):
     t = msp.AddText(e.s, VPT(e.pos, 0.0), float(e.h))
+    try:
+        t.StyleName = "CAD_DRWR_ING"
+    except Exception:
+        pass
     try:
         t.Rotation = math.radians(e.rot)
     except Exception:
@@ -398,13 +418,24 @@ def _dim(msp, e, VPT):
     dim = msp.AddDimRotated(VPT(e.p1), VPT(e.p2), VPT(e.base), ang)
     try:
         dim.Layer = e.layer
+        dim.TextStyle = "CAD_DRWR_ING"
     except Exception:
         pass
     if e.txt:
         try:
-            dim.TextString = e.txt
+            dim.TextOverride = e.txt
         except Exception:
             pass
+    if e.text_height > 0:
+        th = e.text_height
+        for name, value in (("TextHeight", th), ("ArrowheadSize", 0.85 * th),
+                            ("ExtensionLineExtend", 0.45 * th),
+                            ("ExtensionLineOffset", 0.30 * th),
+                            ("TextGap", 0.70 * th), ("ScaleFactor", 1.0)):
+            try:
+                setattr(dim, name, value)
+            except Exception:
+                pass
     # Fuerza la línea entre puntos cuando AutoCAD desplaza flechas/texto.
     try:
         dim.Fit = 1
@@ -414,91 +445,14 @@ def _dim(msp, e, VPT):
 
 
 def _aplanar(dwg: Drawing):
-    """Expande Leader y Table en primitivas IR (misma geometría que el
-    escritor DXF) para que el backend COM solo trate entidades simples.
-    Las cotas (Dim) se preservan para crearlas nativas y asociativas."""
-    out = []
-    for e in dwg.ents:
-        if isinstance(e, Leader):
-            out.append(Line(e.tip, e.elbow, layer=e.layer))
-            if e.shelf > 0:
-                p2 = (e.elbow[0] + e.side * e.shelf, e.elbow[1])
-                out.append(Line(e.elbow, p2, layer=e.layer))
-            else:
-                p2 = e.elbow
-            ha = "l" if e.side > 0 else "r"
-            out.append(Text(p2, e.s, e.h, rot=0.0, layer=e.layer,
-                            ha=ha, va="b"))
-        elif isinstance(e, Table):
-            out.extend(_tabla_prims(e))
-        else:
-            out.append(e)
-    return out
+    """Las llamadas y tablas usan la misma geometría que preview y DXF."""
+    from core.annotations import expand_annotations
+    return list(expand_annotations(dwg.ents))
 
 
 def _tabla_prims(tb: Table):
-    """Convierte una tabla IR en líneas/textos/bocetos IR."""
-    from cad.dxf_out import _sketch_scale, _place
-    prims = []
-    x0, y0 = tb.pos
-    th = tb.h_row
-    n_rows = len(tb.rows) + (1 if tb.header else 0)
-    total_w = sum(tb.col_w)
-    y_top = y0
-    y_hdr = y_top - (tb.row_h if tb.header else 0)
-    y_end = y_hdr - len(tb.rows) * tb.row_h
-
-    if tb.title:
-        prims.append(Text((x0 + total_w / 2.0, y_top + 0.6 * th * 1.15),
-                          tb.title, th * 1.15, layer=ir.L_TABLA,
-                          ha="c", va="b"))
-
-    prims.append(Poly([(x0, y_top), (x0 + total_w, y_top),
-                       (x0 + total_w, y_end), (x0, y_end)],
-                      closed=True, layer=ir.L_TABLA))
-    if tb.header:
-        prims.append(Line((x0, y_hdr), (x0 + total_w, y_hdr),
-                          layer=ir.L_TABLA))
-    x = x0
-    for w in tb.col_w[:-1]:
-        x += w
-        prims.append(Line((x, y_top), (x, y_end), layer=ir.L_TABLA))
-
-    if tb.header:
-        x = x0
-        for i, w in enumerate(tb.col_w):
-            lines = tb.header[i].split("\n")
-            n = len(lines)
-            for k, s in enumerate(lines):
-                yc = y_hdr - tb.row_h * (k + 1) / (n + 1)
-                prims.append(Text((x + w / 2.0, yc), s, th,
-                                  layer=ir.L_TABLA, ha="c", va="m"))
-            x += w
-
-    for r, row in enumerate(tb.rows):
-        ytr = y_hdr - r * tb.row_h
-        if r > 0:
-            prims.append(Line((x0, ytr), (x0 + total_w, ytr),
-                              layer=ir.L_TABLA))
-        x = x0
-        for c, w in enumerate(tb.col_w):
-            if (r, c) in tb.sketches:
-                scale = _sketch_scale(tb.sketches[(r, c)], w * 0.8,
-                                      tb.row_h * 0.62)
-                cx = x + w / 2.0
-                cy = ytr - tb.row_h / 2.0
-                for se in tb.sketches[(r, c)]:
-                    prims.append(_place(se, cx, cy, scale))
-            elif c < len(row) and row[c]:
-                txt = row[c]
-                ha = "c"
-                va = "m"
-                if c == len(row) - 1 and txt.startswith("Σ"):
-                    ha = "r"
-                prims.append(Text((x + w / 2.0, ytr - tb.row_h / 2.0), txt,
-                                  th, layer=ir.L_TABLA, ha=ha, va=va))
-            x += w
-    return prims
+    from core.annotations import table_parts
+    return table_parts(tb)
 
 
 # ------------------------------------------------------------- API pública --

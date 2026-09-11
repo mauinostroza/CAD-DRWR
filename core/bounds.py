@@ -70,15 +70,8 @@ def entity_bounds(e, dim_text_height=3.0):
         return union_bounds([_from_points([e.tip, e.elbow, end]),
                              _text_bounds(label)])
     if isinstance(e, Table):
-        x0, y0 = e.pos
-        width = sum(e.col_w)
-        rows = len(e.rows) + (1 if e.header else 0)
-        bottom = y0 - rows * e.row_h
-        top = y0
-        if e.title:
-            th = (e.h_row or e.row_h * 0.4) * 1.15
-            top += th * 1.9
-        return x0, bottom, x0 + width, top
+        from .annotations import table_parts
+        return union_bounds(entity_bounds(part) for part in table_parts(e))
     return None
 
 
