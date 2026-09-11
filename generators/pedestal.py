@@ -268,7 +268,10 @@ def build_pedestal(p: dict) -> ir.Drawing:
             tip = (min(x for x, y in path), 0)
             elbow = (-B / 2 - 10 * th, -H / 2 - 4 * th)
         else:
-            tip = (0, max(y for x, y in path))
+            # Salir desde la esquina superior derecha del lazo horizontal
+            # evita que la directriz diagonal atraviese la sección.
+            y_top = max(y for x, y in path)
+            tip = (max(x for x, y in path if abs(y - y_top) < 1e-6), y_top)
             elbow = (B / 2 + 10 * th, H / 2 + 5 * th)
         d.ents.append(ir.Leader(tip, elbow, f"B{i}: Ø{ds:g}@{p['e_estribo'] * 10:g} E",
                                 th, shelf=th, side=side))
