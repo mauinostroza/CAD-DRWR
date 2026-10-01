@@ -503,6 +503,7 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
 
         n = 0
         errs = 0
+        failures = []
         total = len(prims)
         paso = max(1, total // 40)   # ~40 actualizaciones de progreso
         for i, e in enumerate(prims):
@@ -510,14 +511,16 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
                 try:
                     _dim(msp, e, VPT)
                     n += 1
-                except Exception:
+                except Exception as exc:
                     errs += 1
+                    failures.append(f"#{i + 1} Dim: {exc}")
             else:
                 try:
                     _emit(msp, e, VPT, VF, pythoncom, VARIANT)
                     n += 1
-                except Exception:
+                except Exception as exc:
                     errs += 1
+                    failures.append(f"#{i + 1} {type(e).__name__}: {exc}")
             if progress_cb is not None and (i % paso == 0 or i == total - 1):
                 try:
                     progress_cb(i + 1, total)
@@ -540,7 +543,10 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
             return f"{pid} — documento abierto: {doc.Name}"
         resumen = f"{pid} — documento: {doc.Name} — {n} entidades creadas"
         if errs:
-            resumen += f" ({errs} omitidas)"
+            raise RuntimeError(
+                f"ENVÍO INCOMPLETO: {resumen}; {errs} entidades fallaron. "
+                "Revise o elimine el detalle parcial antes de reenviar.\n" +
+                "\n".join(failures[:10]))
         return resumen
     finally:
         pythoncom.CoUninitialize()

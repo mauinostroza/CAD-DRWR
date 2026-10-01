@@ -39,6 +39,7 @@ class AnchorBoltPanel(SpecPanel):
         ("permitir_h1_bajo_tc", "Rosca superior bajo T.C.", "chk", False),
         ("material", "Material", "combo",
          ["A307", "A36", "F1554 Gr.55", "A325"], "A307"),
+        ("acabado", "Acabado", "combo", ["Por definir", "Sin recubrimiento", "Galvanizado en caliente"], "Por definir"),
         ("n", "Cantidad total", "int", 1, 500, 48, 1, ""),
         ("tabla", "Cuadro de pernos", "chk", True),
         ("escala", "Escala de acotado", "combo", ESCALAS, "1:25"),
@@ -136,7 +137,7 @@ def draw_bolt_detail(ents, ox, oy, p, f, th, with_dims=True):
     ents.extend(level_symbol((ox - w_conc / 2 - 25 * f, oy), th, "N.P."))
     x1 = ox + w_conc / 2 + 40 * f
     db.v_chain([oy, oy + P], ox + dh / 2, x1,
-               texts=[f"P = {ir.fmt_mm(P)}"], ext_from=ox + dh / 2)
+               texts=[f"{p.get('proyeccion_label', 'P')} = {ir.fmt_mm(P)}"], ext_from=ox + dh / 2)
     db.v_chain([oy - Le, oy], ox + dh / 2, x1,
                texts=[f"Le = {ir.fmt_mm(Le)}"], ext_from=ox + dh / 2)
     if tipo.startswith("PG"):
@@ -295,7 +296,8 @@ def build_anchor_bolt(p: dict) -> ir.Drawing:
         f"PERNO DE ANCLAJE Ø{diam_label} {p['material']}, "
         f"TIPO {p['tipo']}",
         f"EMPOTRAMIENTO R = {int(embed)} mm, PROYECCIÓN P = {int(p_top)} mm",
-        "ROSCA: ASME B1.1  |  GALVANIZADO EN CALIENTE",
+        f"ACABADO: {p.get('acabado', 'Por definir')}",
+        "DETALLE GEOMÉTRICO; MONTAJE Y RESISTENCIA POR VERIFICAR",
     ]
     if str(p.get("tipo", "")).startswith("PG"):
         notas.append("GOLILLA CUADRADA Y TUERCA INFERIOR SOLDADAS POR PUNTOS")
@@ -325,6 +327,9 @@ def _build_pg(p):
         Line((x0, title_y - .5 * th), (x0 + len(title) * 1.1 * th, title_y - .5 * th), ir.L_TXT),
         Text((x0, title_y - 2.8 * th), "S/ESC. — COTAS EN mm SALVO DIÁMETRO INDICADO",
              .85 * th, layer=ir.L_TXT, ha="l", va="b")])
+    drawing.ents.append(Text((x0, title_y - 4.3 * th),
+        f"COMPONENTES ESQUEMÁTICOS — ACABADO: {p.get('acabado', 'Por definir')}",
+        .75 * th, layer=ir.L_TXT, ha="l", va="b"))
     if p.get("tabla", True):
         table_x = x1 + 5 * th
         drawing.ents.append(tabla_perno_pg((table_x, y1), 2 * f, spec))

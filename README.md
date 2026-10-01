@@ -1,5 +1,26 @@
 # StructGen CAD
 
+### Revisión de detalles estructurales
+
+La placa base conserva dimensiones manuales y usa una proyección X-Z coherente
+con su planta. La proyección del perno se identifica por su datum.
+Pedestal incluye largo B1 automático, traslape por contacto y recubrimiento
+editable de zapata. Losa exige ancho de distribución y calcula cantidades
+y espaciamientos efectivos. El despiece incluye tramos de eje antes del
+redondeo y radio interior; estos tramos no son longitudes libres del gancho.
+
+Use **Lámina con cajetín**, **Datos del plano…** y **Revisar anotaciones**.
+Los metadatos se guardan en las plantillas. La revisión de solapes es una
+estimación textual; no garantiza el ploteo con fuentes CAD distintas.
+La fundación SAP rechaza shells no coplanares y espesores desconocidos,
+elige cortes que atraviesan shells y muestra solo pedestales intersectados.
+Los componentes aproximados quedan identificados; no certifica resistencia,
+anclajes, soldaduras ni longitudes normativas de desarrollo.
+
+Validación local: `QT_QPA_PLATFORM=offscreen python -m unittest discover -s tests`.
+Regenerar ejemplos: `python scripts/render_design_checks.py`.
+La prueba COM y de impresión en ZWCAD/AutoCAD requiere Windows.
+
 Generador automático de dibujos estructurales en formato **DXF**, compatible
 con **AutoCAD** y **ZWCAD**, escrito en **Python + PySide6**.
 

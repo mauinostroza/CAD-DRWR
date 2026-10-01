@@ -44,13 +44,18 @@ class PedestalPanel(SpecPanel):
         ("elevacion", "Vista de elevación", "chk", True),
         ("ancho_zap", "Ancho zapata (cm)", "float", 40, 500, 130, 1, 10, ""),
         ("alto_zap", "Alto zapata (cm)", "float", 20, 120, 30, 1, 5, ""),
+        ("r_zapata", "Recubrimiento libre zapata (mm)", "float", 0, 150, 50, 0, 5, ""),
         ("traslape", "Traslape arranque (cm)", "float", 20, 200, 45, 1, 5, ""),
         ("gancho_arranque", "Pata de arranque (mm)", "float", 50, 600, 90, 0, 5, ""),
         ("largo_barra", "Largo barra B1 (m)", "float", 0.5, 12, 3.2, 2, 0.1, " m"),
+        ("modo_b1", "Longitud B1", "combo", ["Según elevación", "Manual (esquemático)"], "Según elevación"),
+        ("fc", "Hormigón f'c (MPa)", "float", 1, 150, 21, 1, 1, ""),
+        ("fy", "Acero fy (MPa)", "float", 1, 1000, 420, 0, 10, ""),
         ("escala", "Escala de acotado", "combo", ESCALAS, "1:25"),
     ]
 
     def on_change(self):
+        self.w["largo_barra"].setEnabled(self.w["modo_b1"].currentText() != "Según elevación")
         mode = self.w["preset"].currentText()
         by_face = mode == "Por caras"
         for key in ("n_sup", "n_inf", "n_izq", "n_der"):
@@ -82,6 +87,8 @@ class PedestalPanel(SpecPanel):
     def set_params(self, p):
         # Activa primero el modo y carga después las dimensiones guardadas.
         p = dict(p)
+        # Las plantillas históricas conservan su longitud manual explícita.
+        p.setdefault("modo_b1", "Manual (esquemático)")
         mode = p.pop("preset", "Total anterior")
         if mode == "Legacy":
             mode = "Total anterior"
@@ -201,6 +208,9 @@ def _interior_tie_paths(p: dict, B: float, H: float, R: float, ds: float,
 # -------------------------------------------------------------- generador --
 def build_pedestal(p: dict) -> ir.Drawing:
     d = ir.Drawing()
+    if any(not math.isfinite(float(p.get(key, default))) or float(p.get(key, default)) <= 0
+           for key, default in (("fc", 21), ("fy", 420))):
+        raise ValueError("Las resistencias de materiales deben ser positivas y finitas")
     f = p.get("_escala", 2.5)
     th = 5.0 * f
     B, H = p["b"] * 10.0, p["h"] * 10.0        # sección en mm
@@ -223,6 +233,8 @@ def build_pedestal(p: dict) -> ir.Drawing:
            for i, a in enumerate(bars) for b in bars[i + 1:]):
         raise ValueError("Las barras longitudinales se tocan o superponen; revise cantidades y sección")
     arranque_xs = sorted({x for x, y in bars})
+    _b1_length(p)
+    _validate_starters(p, arranque_xs, db_d)
     outer_stirrup = _outer_stirrup(B, H, R, ds)
     inner_paths = _interior_tie_paths(p, B, H, R, ds, layout)
 
@@ -253,7 +265,7 @@ def build_pedestal(p: dict) -> ir.Drawing:
     dbb.h_total(-B / 2, B / 2, H / 2, H / 2 + 6 * th)
     dbb.v_total(-H / 2, H / 2, B / 2, B / 2 + 6 * th)
     d.ents.append(Text((0, H / 2 + 10 * th),
-                        f"SECCIÓN — {len(bars)}Ø{db_d:g}", 1.3 * th,
+                        f"SECCIÓN SOBRE TRASLAPE — {len(bars)}Ø{db_d:g}", 1.3 * th,
                         layer=ir.L_TXT, va="b"))
     # Las flechas terminan en las familias que describen, nunca en un eje vacío.
     d.ents.append(ir.Leader((-x0, y0), (-B / 2 - 10 * th, H / 2 + 5 * th),
@@ -297,10 +309,14 @@ def build_pedestal(p: dict) -> ir.Drawing:
 
     # --------------------------- TÍTULO ---------------------------
     notas = [
-        f"CONCRETO f'c = 21 MPa  |  ACERO fy = 420 MPa",
+        f"CONCRETO f'c = {float(p.get('fc', 21)):g} MPa  |  ACERO fy = {float(p.get('fy', 420)):g} MPa",
         f"RECUBRIMIENTO r = {ir.fmt_cm(R)} cm  |  "
         f"ESTRIBOS Ø{ds:g} c/{ir.fmt_cm(p['e_estribo'] * 10)} cm",
     ]
+    if p.get("modo_b1", "Manual (esquemático)") != "Según elevación":
+        notas.append(f"B1 MANUAL: L = {_b1_length(p) / 1000:g} m; ELEVACIÓN ESQUEMÁTICA, VERIFICAR EXTREMOS")
+    notas.append("TRASLAPE B1/B2 POR CONTACTO: B2 HACIA EL NÚCLEO; SECCIÓN SOBRE TRASLAPE")
+    notas.append("GEOMETRÍA DE DETALLE; ANCLAJES Y TRASLAPES REQUIEREN VERIFICACIÓN DE DISEÑO")
     for i, s in enumerate(notas):
         d.ents.append(Text((section_bounds[0], y_min - (i + 1) * 3 * th), s,
                            2.5 * f, 0, ir.L_TXT, "l", "m"))
@@ -322,10 +338,54 @@ def _stirrup_levels(p, R, ds):
     return levels
 
 
+def _b1_length(p):
+    """Longitud real del tramo mostrado, o longitud histórica declarada."""
+    value = (float(p["H"]) * 10 - float(p["r"]) * 10
+             if p.get("modo_b1") == "Según elevación"
+             else float(p["largo_barra"]) * 1000)
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("La longitud B1 debe ser positiva y finita")
+    return value
+
+
 def _starter_path(p):
     leg = float(p.get("gancho_arranque", 90))
-    return [(leg, -p["alto_zap"] * 10 + 60),
-            (0, -p["alto_zap"] * 10 + 60), (0, p["traslape"] * 10)]
+    if not math.isfinite(leg) or leg <= 0:
+        raise ValueError("La pata del arranque debe ser positiva y finita")
+    # Plantillas previas: mantener eje histórico a 60 mm del fondo.
+    axis_cover = (float(p["r_zapata"]) + float(p["d_barra"]) / 2
+                  if "r_zapata" in p else 60.0)
+    return [(leg, -p["alto_zap"] * 10 + axis_cover),
+            (0, -p["alto_zap"] * 10 + axis_cover), (0, p["traslape"] * 10)]
+
+
+def _validate_starters(p, xs, diameter):
+    """Contención geométrica, no comprobación normativa de anclaje."""
+    cover = float(p.get("r_zapata", 60 - diameter / 2))
+    width, depth = float(p["ancho_zap"]) * 10, float(p["alto_zap"]) * 10
+    lap = float(p["traslape"]) * 10
+    if (not all(math.isfinite(v) for v in (cover, width, depth, lap))
+            or cover < 0 or min(width, depth) <= 0):
+        raise ValueError("Dimensiones de zapata/recubrimiento inválidas")
+    if lap <= 0 or lap > float(p["H"]) * 10 - float(p["r"]) * 10:
+        raise ValueError("El traslape debe quedar dentro de la altura útil del pedestal")
+    path = _starter_path(p)
+    poly_bar(path, diameter, 3 * diameter)  # valida el radio sin recortarlo
+    if path[0][1] + diameter / 2 > 0:
+        raise ValueError("El gancho no cabe dentro del espesor de zapata")
+    for i, x in enumerate(xs):
+        x = _starter_axis(x, diameter)
+        if any(abs(x - main_x) < diameter - 1e-6 for main_x in xs):
+            raise ValueError("El traslape por contacto no cabe entre barras; revise la distribución")
+        sign = -1 if i % 2 else 1
+        if any(abs(x + sign * px) + diameter / 2 > width / 2 - cover + 1e-6
+               for px, py in path):
+            raise ValueError("El arranque invade el recubrimiento lateral de la zapata")
+
+
+def _starter_axis(x, diameter):
+    """Arranque junto a B1, tangente por contacto y hacia el núcleo."""
+    return x - math.copysign(diameter, x)
 
 
 def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, n_long, f, th):
@@ -340,9 +400,12 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, n_long, f, th):
     e.extend(hatch_poly(z_rect.pts, 9 * f))
     # Una elevación muy alta se representa con una rotura convencional para
     # que la sección y el cuadro sigan siendo legibles. La cota conserva Hm.
-    shortened = Hm > 1100.0
+    # No cortar gráficamente dentro del traslape: ambas barras y su cota
+    # deben quedar en el tramo inferior continuo.
+    bottom_segment = max(min(400.0, Hm * 0.25), lap + 40 * f)
+    shortened = Hm > 1100.0 and 2 * bottom_segment + 70 * f < Hm
     if shortened:
-        seg = min(400.0, Hm * 0.25)
+        seg = bottom_segment
         gap = 70.0 * f
         y_upper = seg + gap
         Hdraw = y_upper + seg
@@ -359,9 +422,10 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, n_long, f, th):
     # arranques con gancho en zapata (alternando lado) + barras principales
     for i, xb in enumerate(xs):
         x = ex + xb
+        starter_x = ex + _starter_axis(xb, db_d)
         sgn = -1 if i % 2 else 1
         hook_y = -hf + 60
-        arr, _ = poly_bar([(x + sgn * px, py) for px, py in _starter_path(p)], db_d, 3 * db_d,
+        arr, _ = poly_bar([(starter_x + sgn * px, py) for px, py in _starter_path(p)], db_d, 3 * db_d,
                           width=max(1.2, db_d * 0.14))
         e.extend(arr)
         if shortened:
@@ -400,7 +464,7 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, n_long, f, th):
     dbb.h_chain([ex - Wf / 2, ex + Wf / 2], -hf, yb, ext_from=-hf,
                 texts=[f"{ir.fmt_m(Wf)}"])
     dbb.h_total(ex - B / 2, ex + B / 2, 0, -hf - 75 * f, ext_from=-hf)
-    e.append(ir.Leader((ex + xs[-1], 60),
+    e.append(ir.Leader((ex + _starter_axis(xs[-1], db_d), 60),
                        (ex + Wf / 2 + 4 * th, 60 + 8 * th),
                        f"ARRANQUES {n_long}Ø{db_d:g}", th, shelf=20 * f,
                        side=1))
@@ -416,13 +480,13 @@ def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup,
     qty_long = len(bars)
 
     # B1 barras principales (rectas)
-    L1 = p["largo_barra"] * 1000.0
-    celdas, sk, dev = fila_barra("B1", "recta", [(0, 0), (0, 1)], db_d,
+    L1 = _b1_length(p)
+    celdas, sk, dev = fila_barra("B1", "recta", [(0, 0), (0, L1)], db_d,
                                  2 * db_d, qty_long)
-    celdas[4] = f"{p['largo_barra']:.2f}"
+    celdas[4] = f"{L1 / 1000:.2f}"
     pu = peso_barra(db_d)
-    celdas[6] = f"{pu * qty_long * p['largo_barra']:.1f}"
-    total += pu * qty_long * p["largo_barra"]
+    celdas[6] = f"{pu * qty_long * L1 / 1000:.1f}"
+    total += pu * qty_long * L1 / 1000
     filas.append((celdas, sk))
 
     # B2 arranques (L con gancho en zapata)

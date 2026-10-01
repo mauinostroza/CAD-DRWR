@@ -28,6 +28,8 @@ class BasePlatePanel(SpecPanel):
         ("tf", "Espesor ala tf", "float", 6, 80, 8.4, 1, 0.5, ""),
         ("B", "Placa B, ancho X (mm)", "float", 150, 2000, 440, 0, 10, ""),
         ("N", "Placa N, largo Y (mm)", "float", 150, 2000, 590, 0, 10, ""),
+        ("w_conc", "Ancho de pedestal en elevación (mm)",
+         "float", 150, 4000, 640, 0, 10, ""),
         ("t", "Espesor placa (mm)", "float", 6, 60, 12, 0, 1, ""),
         ("n_pernos", "Nº de pernos", "combo", ["4", "6", "8"], "4"),
         ("d_perno", "Ø perno (mm)", "combo", DIAM_PERNOS, 19),
@@ -42,6 +44,16 @@ class BasePlatePanel(SpecPanel):
         ("w_sold", "Soldadura w (mm)", "float", 4, 25, 8, 0, 1, ""),
         ("detalle_perno", "Detalle del perno", "chk", True),
         ("tabla_pernos", "Cuadro de pernos", "chk", True),
+        ("material_placa", "Material de placa", "combo",
+         ["No especificado", "A36", "A572 Gr.50", "Otro"],
+         "No especificado"),
+        ("material_perno", "Especificación de pernos", "combo",
+         ["No especificado", "A307", "F1554 Gr.36", "F1554 Gr.55",
+          "F1554 Gr.105", "Otro"], "No especificado"),
+        ("grout_mpa", "Resistencia grout (MPa; 0 = no indicada)",
+         "float", 0, 100, 0, 1, 1, " MPa"),
+        ("norma_soldadura", "Norma de soldadura", "combo",
+         ["No especificada", "AWS D1.1", "Otra"], "No especificada"),
         ("escala", "Escala de acotado", "combo", ESCALAS, "1:50"),
     ]
 
@@ -49,22 +61,18 @@ class BasePlatePanel(SpecPanel):
         if getattr(self, "_busy", False):
             return
         self._busy = True
-        perfil = self.w["perfil"].currentText()
-        if perfil in W_DB:
-            s = W_DB[perfil]
-            self.set_many({"d": s["d"], "bf": s["bf"],
-                           "tw": s["tw"], "tf": s["tf"]})
-        d = self.w["d"].value()
-        bf = self.w["bf"].value()
-        cart = self.w["cartelas"].isChecked()
-        ls = self.w["ls"].value()
-        dh = float(self.w["d_perno"].currentText())
-        extra = (2 * ls + dh + 60) if cart else 110.0
-        g = bf + extra
-        pp = d + extra
-        self.set_many({"g": _r5(g), "p": _r5(pp),
-                       "B": _r10(g + 90), "N": _r10(pp + 90)})
-        self._busy = False
+        try:
+            # A profile selection may populate section dimensions, but must
+            # not silently replace user-authored plate/anchor dimensions.
+            # In particular g, p, B and N remain explicit design inputs.
+            if self.sender() is self.w["perfil"]:
+                perfil = self.w["perfil"].currentText()
+                if perfil in W_DB:
+                    s = W_DB[perfil]
+                    self.set_many({"d": s["d"], "bf": s["bf"],
+                                   "tw": s["tw"], "tf": s["tf"]})
+        finally:
+            self._busy = False
 
 
 def _r5(v): return round(v / 5.0) * 5.0
@@ -82,6 +90,7 @@ def _bolt_rows(n: int, p: float):
 
 # -------------------------------------------------------------- generador --
 def build_base_plate(p: dict) -> ir.Drawing:
+    _validate_base_plate(p)
     d = ir.Drawing()
     f = p.get("_escala", 5.0)
     th = 3.0 * f
@@ -105,19 +114,26 @@ def build_base_plate(p: dict) -> ir.Drawing:
                        layer=ir.L_TXT, ha="c", va="m"))
 
     # ========================== ELEVACIÓN ===========================
-    ex = B / 2.0 + 150.0 * f + N / 2.0          # centro de la elevación
-    _elevacion(d, db, p, ex, B, N, BF, D, TW, t, dh, g, pp, P, ys_rows,
+    ex = B + 150.0 * f                         # centro de la elevación X-Z
+    _elevacion(d, db, p, ex, B, BF, D, TW, t, dh, g, P,
                cart, hs, ls, ts, w_sold, f, th)
-    d.ents.append(Text((ex, max(20 + t + 1.7 * D, P) + 70 * f),
+    z_top = 20.0 + t + 1.7 * D
+    d.ents.append(Text((ex, z_top + 70 * f),
                        "ELEVACIÓN", 3.5 * f, layer=ir.L_TXT,
                        ha="c", va="m"))
 
     # ======================= DETALLE DEL PERNO ======================
-    x_end = ex + N / 2.0 + 90.0 * f
+    x_end = ex + B / 2.0 + 90.0 * f
     if p["detalle_perno"]:
         from .anchor_bolt import draw_bolt_detail
         dx = x_end + 90.0 * f + 8 * dh
-        draw_bolt_detail(d.ents, dx, 0.0, p, f, th)
+        # The standalone detail uses concrete top as its datum.  In the
+        # base-plate module P is specified from the plate top, so include
+        # grout and plate thickness when placing that endpoint.
+        bolt_detail_params = dict(p)
+        bolt_detail_params["P"] = 20.0 + t + P
+        bolt_detail_params["proyeccion_label"] = "P HORMIGÓN"
+        draw_bolt_detail(d.ents, dx, 0.0, bolt_detail_params, f, th)
         d.ents.append(Text((dx, P + 90 * f), "DETALLE PERNO",
                            3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
         x_end = dx + 10 * dh
@@ -126,22 +142,29 @@ def build_base_plate(p: dict) -> ir.Drawing:
     y_tab = -N / 2.0 - 115.0 * f
     if p["tabla_pernos"]:
         datos = [[str(n), str(dh), str(int(p["Le"])), str(int(P)),
-                  "A307", "1 tuerca + arandela"]]
+                  p.get("material_perno", "No especificado"),
+                  "1 tuerca + arandela"]]
         tb = tabla_pernos((-B / 2.0 - 90.0 * f, y_tab), f, datos)
         d.ents.append(tb)
         y_tab -= 3 * tb.row_h + 12.0 * f
 
     # ============================= NOTAS ============================
-    notas = [
-        f"PLACA BASE A36  e = {t:g} mm",
-        f"PERNOS DE ANCLAJE {n}x Ø{dh:g} A307, EMPOTRAMIENTO {int(p['Le'])} mm, "
-        f"PROYECCIÓN {int(P)} mm",
-        "GROUT: MORTERO DE PEGADO e = 20 MPa",
-        f"SOLDADURAS DE FILETE w = {w_sold:g} mm, AWS D1.1",
-    ]
+    material_placa = p.get("material_placa", "No especificado")
+    material_perno = p.get("material_perno", "No especificado")
+    grout_mpa = float(p.get("grout_mpa", 0) or 0)
+    norma_soldadura = p.get("norma_soldadura", "No especificada")
+    notas = [f"PLACA BASE {material_placa}  e = {t:g} mm",
+             f"PERNOS {n}x Ø{dh:g} {material_perno}; Le = {int(p['Le'])} mm; "
+             f"P = {int(P)} mm desde cara superior de placa"]
+    if grout_mpa > 0:
+        notas.append(f"GROUT: resistencia especificada = {grout_mpa:g} MPa")
+    else:
+        notas.append("GROUT: resistencia no especificada")
+    notas.append(f"SOLDADURA DE FILETE w = {w_sold:g} mm; "
+                 f"norma: {norma_soldadura}")
     if cart:
-        notas.append(f"CARTELAS: PLACA A36 e = {ts:g} mm, "
-                     f"SOLDADURAS w = {w_sold:g} mm")
+        notas.append(f"CARTELAS: PLACA {material_placa} e = {ts:g} mm, "
+                     f"soldadura w = {w_sold:g} mm")
     y0 = y_tab - 12.0 * f
     for i, s in enumerate(notas):
         d.ents.append(Text((-B / 2.0 - 90.0 * f, y0 - i * 8.0 * f), s,
@@ -151,6 +174,41 @@ def build_base_plate(p: dict) -> ir.Drawing:
                        f"PLACA BASE PARA COLUMNA {p['perfil']}  -  "
                        f"ESC {p['escala']}", 4.5 * f, 0, ir.L_TXT, "c", "m"))
     return d
+
+
+def _validate_base_plate(p: dict) -> None:
+    """Reject geometries that would draw an internally inconsistent detail."""
+    required = ("d", "bf", "tw", "tf", "B", "N", "w_conc", "t", "g", "p", "P",
+                "Le", "d_perno")
+    missing = [key for key in required if key not in p]
+    if missing:
+        raise ValueError("Faltan parámetros de placa base: " + ", ".join(missing))
+    vals = {key: float(p[key]) for key in required}
+    if any(value <= 0 for value in vals.values()):
+        raise ValueError("Las dimensiones de placa, perfil y pernos deben ser positivas")
+    if vals["d"] <= 2 * vals["tf"] or vals["bf"] <= vals["tw"]:
+        raise ValueError("La geometría del perfil no es válida: revise d, bf, tw y tf")
+    if vals["B"] < vals["bf"] or vals["N"] < vals["d"]:
+        raise ValueError("La placa debe cubrir la huella de la columna en ambos ejes")
+    if vals["w_conc"] < vals["B"]:
+        raise ValueError("El pedestal de hormigón debe cubrir el ancho B de la placa")
+    n = int(p["n_pernos"])
+    if n not in (4, 6, 8):
+        raise ValueError("El número de pernos debe ser 4, 6 u 8")
+    # Ø + 6 mm hole clearance: keep the entire hole inside the plate.
+    edge = vals["d_perno"] / 2.0 + 3.0
+    if vals["g"] / 2.0 + edge > vals["B"] / 2.0:
+        raise ValueError("Los agujeros de perno exceden el ancho B de la placa")
+    if n > 4 and vals["p"] / 2.0 + edge > vals["N"] / 2.0:
+        raise ValueError("Los agujeros de perno exceden el largo N de la placa")
+    if p.get("cartelas"):
+        if min(float(p.get("hs", 0)), float(p.get("ls", 0)),
+               float(p.get("ts", 0)), float(p.get("w_sold", 0))) <= 0:
+            raise ValueError("Las dimensiones de cartela y soldadura deben ser positivas")
+        if vals["bf"] / 2 + float(p["ls"]) > vals["B"] / 2:
+            raise ValueError("Las cartelas exceden el ancho B de la placa")
+    if float(p.get("grout_mpa", 0) or 0) < 0:
+        raise ValueError("La resistencia del grout no puede ser negativa")
 
 
 # ----------------------------------------------------------------- planta --
@@ -167,8 +225,16 @@ def _planta(d, db, p, B, N, BF, D, TW, TF, dh, g, pp, r_h, n, ys_rows,
         (-hw, -a), (-hw, a), (-BF / 2, a)], closed=True))
     # huellas de cartelas
     if cart:
-        e.append(ir.rect(-ts / 2, D / 2, ts / 2, D / 2 + ls))
-        e.append(ir.rect(-ts / 2, -D / 2 - ls, ts / 2, -D / 2))
+        # Proyección en planta de las dos cartelas que se ven en la elevación
+        # X-Z: cada una aparece en ambas alas (solapadas en esa elevación).
+        # En planta se ubican sobre el espesor real de cada ala, no sobre el
+        # alma central, evitando que las placas parezcan flotantes.
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                x0 = sx * BF / 2
+                yc = sy * (D / 2 - TF / 2)
+                e.append(ir.rect(min(x0, x0 + sx * ls), yc - ts / 2,
+                                 max(x0, x0 + sx * ls), yc + ts / 2))
     # perforaciones
     for x in (-g / 2, g / 2):
         for y in ys_rows:
@@ -205,20 +271,20 @@ def _planta(d, db, p, B, N, BF, D, TW, TF, dh, g, pp, r_h, n, ys_rows,
 
 
 # -------------------------------------------------------------- elevación --
-def _elevacion(d, db, p, ex, B, N, BF, D, TW, t, dh, g, pp, P, ys_rows,
+def _elevacion(d, db, p, ex, B, BF, D, TW, t, dh, g, P,
                cart, hs, ls, ts, w_sold, f, th):
     e = d.ents
     zc, zp = 20.0, 20.0 + t          # tope grout / tope placa
-    w_conc, h_conc = N + 200, 350
+    w_conc, h_conc = p["w_conc"], 350
     # pedestal de concreto + grout
     c_rect = ir.rect(ex - w_conc / 2, -h_conc, ex + w_conc / 2, 0)
     e.append(c_rect)
     e.extend(hatch_poly(c_rect.pts, 9 * f))
-    g_rect = ir.rect(ex - (N - 20) / 2, 0, ex + (N - 20) / 2, zc)
+    g_rect = ir.rect(ex - (B - 20) / 2, 0, ex + (B - 20) / 2, zc)
     e.append(g_rect)
     e.extend(hatch_poly(g_rect.pts, 5 * f))
     # placa y columna
-    e.append(ir.rect(ex - N / 2, zc, ex + N / 2, zp))
+    e.append(ir.rect(ex - B / 2, zc, ex + B / 2, zp))
     z_top = zp + 1.7 * D
     e.append(ir.rect(ex - BF / 2, zp, ex + BF / 2, z_top))
     # rotura superior de columna
@@ -256,16 +322,19 @@ def _elevacion(d, db, p, ex, B, N, BF, D, TW, t, dh, g, pp, P, ys_rows,
     e.extend(level_symbol((ex - w_conc / 2 - 25 * f, 0), th, "N.P. ±0.00"))
 
     # acotado derecho: grout / placa / proyección, y altura de columna
-    x1 = ex + N / 2 + 40 * f
-    db.v_chain([0, zc, zp, zp + P], ex + N / 2, x1, ext_from=ex + N / 2)
-    db.v_total(zp, zp + D, ex + BF / 2, x1 + 35 * f, ext_from=ex + BF / 2)
-    # abajo: largo de placa y ancho de pedestal
+    x1 = ex + B / 2 + 40 * f
+    db.v_chain([0, zc, zp, zp + P], ex + B / 2, x1,
+               ext_from=ex + B / 2,
+               texts=["20", ir.fmt_mm(t), f"P = {ir.fmt_mm(P)}"])
+    # La columna se dibuja con rotura convencional: su altura real no está
+    # definida en este detalle y por tanto no se acota como si fuera D.
+    # abajo: ancho real de placa y ancho explícito del pedestal
     yb = -h_conc - 40 * f
-    db.h_chain([ex - N / 2, ex + N / 2], -h_conc, yb, ext_from=-h_conc,
-               texts=[f"N = {ir.fmt_mm(N)}"])
+    db.h_chain([ex - B / 2, ex + B / 2], -h_conc, yb, ext_from=-h_conc,
+               texts=[f"B = {ir.fmt_mm(B)}"])
     db.h_total(ex - w_conc / 2, ex + w_conc / 2, -h_conc, yb - 35 * f,
-               ext_from=-h_conc)
+               ext_from=-h_conc, txt=f"PEDESTAL = {ir.fmt_mm(w_conc)}")
     # etiqueta de espesor de placa
-    d.ents.append(ir.Leader((ex + N / 4, zp + t / 2),
-                            (ex + N / 2 + 55 * f, zp + 45 * f),
+    d.ents.append(ir.Leader((ex + B / 4, zc + t / 2),
+                            (ex + B / 2 + 55 * f, zp + 45 * f),
                             f"PLACA e = {t:g} mm", th, shelf=20 * f, side=1))

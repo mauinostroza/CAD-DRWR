@@ -4,11 +4,12 @@ core.tables — Cuadros de despiece de acero y tablas de pernos.
 """
 
 from . import ir
+import math
 from .geom import poly_bar
 from .bolt_spec import PGSpec, pg_spec_from_params, pg_table_rows
 
-COLS = ["MARCA", "FORMA", "Ø\n(mm)", "Nº", "LARGO\n(m)", "P.U.\n(kg/m)", "PESO\n(kg)"]
-COL_W = [20, 34, 16, 14, 24, 24, 26]          # anchos base (x factor de escala)
+COLS = ["MARCA", "FORMA", "Ø\n(mm)", "Nº", "LARGO\n(m)", "P.U.\n(kg/m)", "PESO\n(kg)", "TRAMOS EJE\n(mm)"]
+COL_W = [20, 34, 16, 14, 24, 24, 26, 85]
 
 
 def peso_barra(d_mm: float) -> float:
@@ -24,6 +25,11 @@ def fila_barra(marca: str, shape_code: str, shape_pts, d: float, R_in: float,
     pu = peso_barra(d)
     celdas = [marca, "", f"Ø{d}", str(qty), f"{dev / 1000.0:.2f}",
               f"{pu:.2f}", f"{pu * qty * dev / 1000.0:.2f}"]
+    legs = [f"{chr(65+i)}={math.dist(a,b):.1f}" for i, (a,b)
+            in enumerate(zip(shape_pts, shape_pts[1:]))]
+    details = [f"{shape_code}; R interior={R_in:g}"]
+    details.extend("; ".join(legs[i:i+3]) for i in range(0, len(legs), 3))
+    celdas.append("\n".join(details))
     # normaliza boceto alrededor de su centro, con origen (0,0)
     xs = [p[0] for e in ents for p in _pts_of(e)]
     ys = [p[1] for e in ents for p in _pts_of(e)]
@@ -72,17 +78,19 @@ def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
         rows.append(celdas)
         if sketch:
             sketches[(i, 1)] = sketch
-    t = ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=COLS,
+    line_count = max((len(str(cell).splitlines()) for row in rows for cell in row), default=1)
+    t = ir.Table(pos=pos, col_w=col_w, row_h=max(15.0, (line_count+1)*6.25) * f, header=COLS,
                  rows=rows, title=title, h_row=5.0 * f, sketches=sketches)
     if total_kg is not None:
-        blank = [""] * (len(COLS) - 1)
-        rows.append(blank + [f"Σ {total_kg:.1f}"])
+        total_row = [""] * len(COLS)
+        total_row[6] = f"Σ {total_kg:.1f}"
+        rows.append(total_row)
     return t
 
 
 def tabla_pernos(pos, f: float, datos, title="CUADRO DE PERNOS DE ANCLAJE"):
     """datos: lista de listas de texto. Encabezados fijos."""
-    headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY.\n(mm)", "MATERIAL",
+    headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY. PLACA\n(mm)", "MATERIAL",
                "TUERCA /\nARANDELA"]
     col_w = [w * f for w in [20, 24, 34, 30, 38, 56]]
     return ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=headers,

@@ -20,6 +20,7 @@ implementa a mano el mismo contrato mínimo que usa MainWindow: params(),
 set_params() y la señal params_changed.
 """
 
+import math
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (QComboBox, QDoubleSpinBox, QFormLayout,
                                QLabel, QMessageBox, QPushButton,
@@ -31,6 +32,7 @@ from core import ir
 from core.ir import Poly, Text
 from core.geom import corte_poligono, level_symbol
 from core.dims import DimBuilder
+from core.bounds import drawing_bounds
 
 GAP_ELEV = 200.0       # mm entre las 2 elevaciones (ejeX/ejeY) de una zapata
 GAP_FILA_ZAPATA = 300.0    # mm entre el par de elevaciones de zapatas vecinas
@@ -218,11 +220,17 @@ def _posicion_corte(zapata, eje):
     la elevación, para que las marcas de corte sean trazables.
     """
     x0, x1, y0, y1 = _bbox(zapata["contorno"])
-    if zapata["pedestales"]:
-        idx = 0 if eje == "x" else 1
-        return sum(p["centro"][idx] for p in zapata["pedestales"]) / \
-            len(zapata["pedestales"])
-    return (x0 + x1) / 2.0 if eje == "x" else (y0 + y1) / 2.0
+    idx = 0 if eje == "x" else 1
+    candidates = [p["centro"][idx] for p in zapata["pedestales"]]
+    candidates.append((x0 + x1) / 2.0 if eje == "x" else (y0 + y1) / 2.0)
+    # El centro de un shell válido evita vacíos en contornos cóncavos.
+    candidates.extend(sum(pt[idx] for pt in a["pts"]) / len(a["pts"])
+                      for a in zapata["areas"] if a["pts"])
+    for value in candidates:
+        if any(corte_poligono([(pt[0], pt[1]) for pt in a["pts"]], eje, value)
+               for a in zapata["areas"]):
+            return value
+    raise ValueError("No se encontró un corte que atraviese los shells")
 
 
 def _dibujar_marcas_corte(d, zapata, f):
@@ -235,6 +243,9 @@ def _dibujar_marcas_corte(d, zapata, f):
     # A-A: plano x = constante (elevación transversal en Y).
     x = _posicion_corte(zapata, "x")
     d.ents.append(ir.Line((x, y0 - margen), (x, y1 + margen), ir.L_EJE))
+    for yy in (y0 - margen, y1 + margen):
+        d.ents.append(ir.Filled([(x + 5*f, yy), (x, yy + 2*f),
+                                (x, yy - 2*f)], ir.L_EJE))
     d.ents.append(Text((x, y1 + margen + etiqueta_off), "A", 2.2 * f,
                        0, ir.L_EJE, "c", "b"))
     d.ents.append(Text((x, y0 - margen - etiqueta_off), "A", 2.2 * f,
@@ -243,6 +254,9 @@ def _dibujar_marcas_corte(d, zapata, f):
     # B-B: plano y = constante (elevación transversal en X).
     y = _posicion_corte(zapata, "y")
     d.ents.append(ir.Line((x0 - margen, y), (x1 + margen, y), ir.L_EJE))
+    for xx in (x0 - margen, x1 + margen):
+        d.ents.append(ir.Filled([(xx, y + 5*f), (xx - 2*f, y),
+                                (xx + 2*f, y)], ir.L_EJE))
     d.ents.append(Text((x0 - margen - etiqueta_off, y), "B", 2.2 * f,
                        0, ir.L_EJE, "r", "m"))
     d.ents.append(Text((x1 + margen + etiqueta_off, y), "B", 2.2 * f,
@@ -335,11 +349,18 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
     x_min_usado = loc_t(t_min) - 25 * f    # símbolo de nivel a la izquierda
     x_max_usado = loc_t(t_max)
 
-    d.ents.extend(level_symbol((loc_t(t_min) - 25 * f, y0_off), th,
-                               "N.P. ±0.00"))
+    zs = [pt[2] for a in zapata["areas"] for pt in a["pts"] if len(pt) > 2]
+    datum = f"Z MODELO = {zs[0]:g} mm" if zs else "NIVEL LOCAL 0 (REFERENCIA)"
+    d.ents.extend(level_symbol((loc_t(t_min) - 25 * f, y0_off), th, datum))
 
-    alto_col = ALTO_ARRANQUE_COL * f / 5.0
+    alto_col = ALTO_ARRANQUE_COL
     for pedestal in zapata["pedestales"]:
+        idx = 0 if eje == "x" else 1
+        normal_width = (pedestal["largo"] if
+                        ((eje == "x") == pedestal["largo_en_x"])
+                        else pedestal["ancho"])
+        if abs(pedestal["centro"][idx] - pos_corte) > normal_width / 2:
+            continue
         centro_ped = pedestal["centro"][1] if eje == "x" else \
             pedestal["centro"][0]
         ancho_ped = pedestal["ancho"] if (
@@ -348,6 +369,10 @@ def _dibujar_zapata_elevacion(d, db, zapata, eje, offset_x, y0_off, f, th,
         xb = loc_t(centro_ped) + ancho_ped / 2.0
         d.ents.append(ir.rect(xa, y0_off, xb, y0_off + alto_col,
                               ir.L_ACERO))
+        d.ents.append(Text(((xa + xb)/2, y0_off + alto_col + 4*f),
+                           "SECCIÓN APROXIMADA — CONTINUACIÓN ESQUEMÁTICA"
+                           if pedestal.get("aproximado", False) else
+                           "CONTINUACIÓN ESQUEMÁTICA", 2*f, layer=ir.L_TXT))
         x_min_usado = min(x_min_usado, xa)
         x_max_usado = max(x_max_usado, xb)
 
@@ -391,6 +416,17 @@ def build_foundation(p: dict) -> ir.Drawing:
     # recolocarla: conservan su posición relativa unas con otras.
     y_min_plantas = 0.0
     for zapata in zapatas:
+        coordinates = [v for a in zapata["areas"] for pt in a["pts"] for v in pt]
+        coordinates.extend(v for pt in zapata["contorno"] for v in pt)
+        if not all(math.isfinite(float(v)) for v in coordinates):
+            raise ValueError(f"{zapata['nombre']}: coordenadas no finitas")
+        zs = [pt[2] for a in zapata["areas"] for pt in a["pts"] if len(pt) > 2]
+        if zs and max(zs) - min(zs) > 1e-6:
+            raise ValueError(f"{zapata['nombre']}: shells con diferentes niveles Z; "
+                             "no se puede emitir un corte horizontal simplificado")
+        if any(not math.isfinite(float(a.get("espesor") or espesor_default)) or
+               (a.get("espesor") or espesor_default) <= 0 for a in zapata["areas"]):
+            raise ValueError(f"{zapata['nombre']}: espesor desconocido; ingrese un valor")
         y_bottom = _dibujar_zapata_planta(d, db, zapata, f, th)
         y_min_plantas = min(y_min_plantas, y_bottom)
 
@@ -407,6 +443,9 @@ def build_foundation(p: dict) -> ir.Drawing:
             x_min, x_max, esp = _dibujar_zapata_elevacion(
                 d, db, zapata, eje, cursor_x, y_fila_elev, f, th,
                 espesor_default)
+            actual = drawing_bounds(ir.Drawing(ents=d.ents[inicio:]))
+            if actual is not None:
+                x_min, x_max = actual[0], actual[2]
             # El dibujo queda centrado en cursor_x (no alineado a su
             # borde izquierdo) — se traslada lo recién agregado para que
             # su borde izquierdo real (x_min) coincida con cursor_x,

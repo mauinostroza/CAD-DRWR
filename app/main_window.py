@@ -16,8 +16,11 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout,
                                QProgressDialog, QPushButton, QSplitter,
                                QStackedWidget, QStatusBar, QVBoxLayout,
                                QWidget)
+from PySide6.QtWidgets import QInputDialog
 
 from core import ir
+from core.sheet import compose_sheet
+from core.layout_review import annotation_overlaps
 from cad.dxf_out import write_dxf
 from cad import com_live
 from .preview import PreviewWidget
@@ -32,6 +35,7 @@ class MainWindow(QMainWindow):
         self.resize(1360, 860)
 
         self.panels = []
+        self.sheet_metadata = {}
         self.stack = QStackedWidget()
         for m in MODULES:
             panel = m.panel()
@@ -74,6 +78,16 @@ class MainWindow(QMainWindow):
         a_all = QAction("Exportar todo (DXF)…", self)
         a_all.triggered.connect(self.export_all)
         tb.addAction(a_all)
+        self.a_sheet = QAction("Lámina con cajetín", self)
+        self.a_sheet.setCheckable(True)
+        self.a_sheet.triggered.connect(self.refresh)
+        tb.addAction(self.a_sheet)
+        a_meta = QAction("Datos del plano…", self)
+        a_meta.triggered.connect(self.edit_sheet_metadata)
+        tb.addAction(a_meta)
+        a_review = QAction("Revisar anotaciones", self)
+        a_review.triggered.connect(self.review_annotations)
+        tb.addAction(a_review)
         tb.addSeparator()
         # --- conexión COM en vivo (AutoCAD / ZWCAD / BricsCAD abiertos) ---
         a_send = QAction("Enviar a CAD (COM)", self)
@@ -121,6 +135,7 @@ class MainWindow(QMainWindow):
     def _module_changed(self, row):
         self.stack.setCurrentIndex(row)
         self.refresh()
+        self.preview.fit()
 
     def _schedule_refresh(self):
         self._timer.start()
@@ -129,15 +144,45 @@ class MainWindow(QMainWindow):
         row = self.list.currentRow()
         return MODULES[row], self.panels[row]
 
+    def build_current(self, module, panel):
+        params = panel.params()
+        drawing = module.builder(params)
+        if self.a_sheet.isChecked():
+            scale = float(str(params.get("escala", "1:25")).split(":")[-1])
+            drawing = compose_sheet(drawing, scale=scale, title=module.nombre,
+                                    project=self.sheet_metadata.get("proyecto", ""),
+                                    number=self.sheet_metadata.get("numero_plano", ""),
+                                    revision=self.sheet_metadata.get("revision", ""))
+        return drawing
+
+    def edit_sheet_metadata(self):
+        values = dict(self.sheet_metadata)
+        for key, label in (("proyecto", "Proyecto"), ("numero_plano", "Número de plano"),
+                           ("revision", "Revisión")):
+            value, accepted = QInputDialog.getText(self, "Datos del plano", label,
+                                                   text=values.get(key, ""))
+            if not accepted:
+                return
+            values[key] = value
+        self.sheet_metadata = values
+        self.refresh()
+
+    def review_annotations(self):
+        collisions = annotation_overlaps(self.preview.dwg)
+        message = (f"{len(collisions)} posibles solapes de texto. Estimación geométrica; "
+                   "confirme las fuentes y el ploteo en CAD.\n\n" +
+                   "\n".join(f"{a} ↔ {b}" for a,b in collisions[:15]))
+        QMessageBox.information(self, "Revisión de anotaciones", message)
+
     def refresh(self):
         m, panel = self.current()
         try:
-            dwg = m.builder(panel.params())
+            dwg = self.build_current(m, panel)
         except Exception as exc:  # parámetros inválidos, etc.
+            self.preview.set_drawing(ir.Drawing())
             self.statusBar().showMessage(f"Error en {m.nombre}: {exc}")
             return
         self.preview.set_drawing(dwg)
-        self.preview.fit()
         self.statusBar().showMessage(
             f"{m.nombre}: {len(dwg.ents)} entidades  |  "
             "Rueda: zoom  |  Arrastrar: paneo  |  Doble clic: ajustar")
@@ -150,7 +195,7 @@ class MainWindow(QMainWindow):
         if not path:
             return
         try:
-            write_dxf(m.builder(panel.params()), path)
+            write_dxf(self.build_current(m, panel), path)
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"No se pudo exportar:\n{exc}")
             return
@@ -164,7 +209,7 @@ class MainWindow(QMainWindow):
         ok, errs = [], []
         for m, panel in zip(MODULES, self.panels):
             try:
-                write_dxf(m.builder(panel.params()),
+                write_dxf(self.build_current(m, panel),
                           os.path.join(folder, f"{m.prefix}.dxf"))
                 ok.append(m.prefix)
             except Exception as exc:
@@ -220,7 +265,7 @@ class MainWindow(QMainWindow):
         """Dibuja el detalle actual directamente en el CAD abierto (COM)."""
         m, panel = self.current()
         try:
-            dwg = m.builder(panel.params())
+            dwg = self.build_current(m, panel)
         except Exception as exc:
             QMessageBox.critical(self, "Error",
                                  f"Parámetros inválidos:\n{exc}")
@@ -310,7 +355,7 @@ class MainWindow(QMainWindow):
         """Exporta un DXF temporal y lo abre en el CAD activo."""
         m, panel = self.current()
         try:
-            dwg = m.builder(panel.params())
+            dwg = self.build_current(m, panel)
         except Exception as exc:
             QMessageBox.critical(self, "Error",
                                  f"Parámetros inválidos:\n{exc}")
@@ -338,7 +383,9 @@ class MainWindow(QMainWindow):
         if not path:
             return
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(panel.params(), fh, indent=2, ensure_ascii=False)
+            json.dump({**panel.params(), "_sheet_metadata": self.sheet_metadata,
+                       "_sheet_enabled": self.a_sheet.isChecked()}, fh,
+                      indent=2, ensure_ascii=False)
         self.statusBar().showMessage(f"Plantilla guardada: {path}")
 
     def load_template(self):
@@ -349,7 +396,10 @@ class MainWindow(QMainWindow):
             return
         try:
             with open(path, encoding="utf-8") as fh:
-                panel.set_params(json.load(fh))
+                values = json.load(fh)
+                self.sheet_metadata = values.pop("_sheet_metadata", {})
+                self.a_sheet.setChecked(bool(values.pop("_sheet_enabled", False)))
+                panel.set_params(values)
         except Exception as exc:
             QMessageBox.critical(self, "Error", f"Plantilla inválida:\n{exc}")
             return
