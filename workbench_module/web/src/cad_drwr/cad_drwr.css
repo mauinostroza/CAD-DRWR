@@ -19,8 +19,7 @@
   grid-template-columns: var(--cad-columna) minmax(0, 1fr);
   gap: 12px;
   box-sizing: border-box;
-  min-height: 640px;
-  height: 100%;
+  height: clamp(640px, calc(100vh - 240px), 1400px);
   padding: 12px;
   background: var(--cad-app);
   color: var(--cad-fg);
@@ -37,6 +36,16 @@
 .cad-pagina *::before,
 .cad-pagina *::after {
   box-sizing: border-box;
+}
+
+/* El workbench define estilos globales para label (columna, gris, negrita): se anulan aquí. */
+.cad-pagina label {
+  display: block;
+  flex-direction: row;
+  gap: 0;
+  font-size: inherit;
+  font-weight: 400;
+  color: inherit;
 }
 
 .cad-pagina :focus-visible {
