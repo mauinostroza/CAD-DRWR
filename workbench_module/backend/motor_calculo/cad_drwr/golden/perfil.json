@@ -1,0 +1,1997 @@
+[
+ {
+  "nombre": "ui_defaults",
+  "params": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -50.5,
+       128.5
+      ],
+      [
+       50.5,
+       128.5
+      ],
+      [
+       50.5,
+       120.1
+      ],
+      [
+       2.9,
+       120.1
+      ],
+      [
+       2.9,
+       -120.1
+      ],
+      [
+       50.5,
+       -120.1
+      ],
+      [
+       50.5,
+       -128.5
+      ],
+      [
+       -50.5,
+       -128.5
+      ],
+      [
+       -50.5,
+       -120.1
+      ],
+      [
+       -2.9,
+       -120.1
+      ],
+      [
+       -2.9,
+       120.1
+      ],
+      [
+       -50.5,
+       120.1
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -50.5,
+      -128.5
+     ],
+     "p2": [
+      -2.9,
+      -128.5
+     ],
+     "base": [
+      -26.7,
+      -208.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "48",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -2.9,
+      -128.5
+     ],
+     "p2": [
+      2.9,
+      -128.5
+     ],
+     "base": [
+      0.0,
+      -208.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "6",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      2.9,
+      -128.5
+     ],
+     "p2": [
+      50.5,
+      -128.5
+     ],
+     "base": [
+      26.7,
+      -208.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "48",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -50.5,
+      -128.5
+     ],
+     "p2": [
+      50.5,
+      -128.5
+     ],
+     "base": [
+      0.0,
+      -278.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "101",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.5,
+      -128.5
+     ],
+     "p2": [
+      50.5,
+      -120.1
+     ],
+     "base": [
+      130.5,
+      -124.3
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.5,
+      -120.1
+     ],
+     "p2": [
+      50.5,
+      120.1
+     ],
+     "base": [
+      130.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "240",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.5,
+      120.1
+     ],
+     "p2": [
+      50.5,
+      128.5
+     ],
+     "base": [
+      130.5,
+      124.3
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.5,
+      -128.5
+     ],
+     "p2": [
+      50.5,
+      128.5
+     ],
+     "base": [
+      200.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "257",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -130.5,
+      0
+     ],
+     "p2": [
+      130.5,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -208.5
+     ],
+     "p2": [
+      0,
+      208.5
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      308.5
+     ],
+     "s": "SECCIÓN",
+     "h": 7.0,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -130.5,
+      -358.5
+     ],
+     "s": "A = 30.9 cm²    PESO = 24.3 kg/m",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -130.5,
+      -374.5
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -418.5
+     ],
+     "s": "PERFIL I / W W250X25  -  ESC 1:20",
+     "h": 9.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "I_W_serie_W310X39",
+  "params": {
+   "tipo": "Perfil I / W",
+   "serie": "W310X39",
+   "d": 310,
+   "bf": 165,
+   "tw": 5.8,
+   "tf": 10.2,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -82.5,
+       155.0
+      ],
+      [
+       82.5,
+       155.0
+      ],
+      [
+       82.5,
+       144.8
+      ],
+      [
+       2.9,
+       144.8
+      ],
+      [
+       2.9,
+       -144.8
+      ],
+      [
+       82.5,
+       -144.8
+      ],
+      [
+       82.5,
+       -155.0
+      ],
+      [
+       -82.5,
+       -155.0
+      ],
+      [
+       -82.5,
+       -144.8
+      ],
+      [
+       -2.9,
+       -144.8
+      ],
+      [
+       -2.9,
+       144.8
+      ],
+      [
+       -82.5,
+       144.8
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -82.5,
+      -155.0
+     ],
+     "p2": [
+      -2.9,
+      -155.0
+     ],
+     "base": [
+      -42.7,
+      -235.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "80",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -2.9,
+      -155.0
+     ],
+     "p2": [
+      2.9,
+      -155.0
+     ],
+     "base": [
+      0.0,
+      -235.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "6",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      2.9,
+      -155.0
+     ],
+     "p2": [
+      82.5,
+      -155.0
+     ],
+     "base": [
+      42.7,
+      -235.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "80",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -82.5,
+      -155.0
+     ],
+     "p2": [
+      82.5,
+      -155.0
+     ],
+     "base": [
+      0.0,
+      -305.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "165",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      82.5,
+      -155.0
+     ],
+     "p2": [
+      82.5,
+      -144.8
+     ],
+     "base": [
+      162.5,
+      -149.9
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "10",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      82.5,
+      -144.8
+     ],
+     "p2": [
+      82.5,
+      144.8
+     ],
+     "base": [
+      162.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "290",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      82.5,
+      144.8
+     ],
+     "p2": [
+      82.5,
+      155.0
+     ],
+     "base": [
+      162.5,
+      149.9
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "10",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      82.5,
+      -155.0
+     ],
+     "p2": [
+      82.5,
+      155.0
+     ],
+     "base": [
+      232.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "310",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -162.5,
+      0
+     ],
+     "p2": [
+      162.5,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -235.0
+     ],
+     "p2": [
+      0,
+      235.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      335.0
+     ],
+     "s": "SECCIÓN",
+     "h": 7.0,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -162.5,
+      -385.0
+     ],
+     "s": "A = 50.5 cm²    PESO = 39.6 kg/m",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -162.5,
+      -401.0
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -445.0
+     ],
+     "s": "PERFIL I / W W310X39  -  ESC 1:20",
+     "h": 9.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "H_HEA_serie_HE240A",
+  "params": {
+   "tipo": "Perfil H (HEA)",
+   "serie": "HE240A",
+   "d": 230,
+   "bf": 240,
+   "tw": 7.5,
+   "tf": 12.0,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -120.0,
+       115.0
+      ],
+      [
+       120.0,
+       115.0
+      ],
+      [
+       120.0,
+       103.0
+      ],
+      [
+       3.75,
+       103.0
+      ],
+      [
+       3.75,
+       -103.0
+      ],
+      [
+       120.0,
+       -103.0
+      ],
+      [
+       120.0,
+       -115.0
+      ],
+      [
+       -120.0,
+       -115.0
+      ],
+      [
+       -120.0,
+       -103.0
+      ],
+      [
+       -3.75,
+       -103.0
+      ],
+      [
+       -3.75,
+       103.0
+      ],
+      [
+       -120.0,
+       103.0
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -120.0,
+      -115.0
+     ],
+     "p2": [
+      -3.75,
+      -115.0
+     ],
+     "base": [
+      -61.875,
+      -195.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "116",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -3.75,
+      -115.0
+     ],
+     "p2": [
+      3.75,
+      -115.0
+     ],
+     "base": [
+      0.0,
+      -195.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      3.75,
+      -115.0
+     ],
+     "p2": [
+      120.0,
+      -115.0
+     ],
+     "base": [
+      61.875,
+      -195.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "116",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -120.0,
+      -115.0
+     ],
+     "p2": [
+      120.0,
+      -115.0
+     ],
+     "base": [
+      0.0,
+      -265.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "240",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      120.0,
+      -115.0
+     ],
+     "p2": [
+      120.0,
+      -103.0
+     ],
+     "base": [
+      200.0,
+      -109.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "12",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      120.0,
+      -103.0
+     ],
+     "p2": [
+      120.0,
+      103.0
+     ],
+     "base": [
+      200.0,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "206",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      120.0,
+      103.0
+     ],
+     "p2": [
+      120.0,
+      115.0
+     ],
+     "base": [
+      200.0,
+      109.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "12",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      120.0,
+      -115.0
+     ],
+     "p2": [
+      120.0,
+      115.0
+     ],
+     "base": [
+      270.0,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "230",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -200.0,
+      0
+     ],
+     "p2": [
+      200.0,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -195.0
+     ],
+     "p2": [
+      0,
+      195.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      295.0
+     ],
+     "s": "SECCIÓN",
+     "h": 7.0,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -200.0,
+      -345.0
+     ],
+     "s": "A = 73.0 cm²    PESO = 57.3 kg/m",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -200.0,
+      -361.0
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -405.0
+     ],
+     "s": "PERFIL H (HEA) HE240A  -  ESC 1:20",
+     "h": 9.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "canal_C_manual",
+  "params": {
+   "tipo": "Canal C",
+   "serie": "—",
+   "d": 200,
+   "bf": 75,
+   "tw": 6.0,
+   "tf": 9.0,
+   "escala": "1:10",
+   "_escala": 1.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -37.5,
+       -100.0
+      ],
+      [
+       37.5,
+       -100.0
+      ],
+      [
+       37.5,
+       -91.0
+      ],
+      [
+       -31.5,
+       -91.0
+      ],
+      [
+       -31.5,
+       91.0
+      ],
+      [
+       37.5,
+       91.0
+      ],
+      [
+       37.5,
+       100.0
+      ],
+      [
+       -37.5,
+       100.0
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -37.5,
+      -100.0
+     ],
+     "p2": [
+      -31.5,
+      -100.0
+     ],
+     "base": [
+      -34.5,
+      -140.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "6",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -31.5,
+      -100.0
+     ],
+     "p2": [
+      37.5,
+      -100.0
+     ],
+     "base": [
+      3.0,
+      -140.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "69",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -37.5,
+      -100.0
+     ],
+     "p2": [
+      37.5,
+      -100.0
+     ],
+     "base": [
+      0.0,
+      -175.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "75",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      37.5,
+      -100.0
+     ],
+     "p2": [
+      37.5,
+      -91.0
+     ],
+     "base": [
+      77.5,
+      -95.5
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "9",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      37.5,
+      -91.0
+     ],
+     "p2": [
+      37.5,
+      91.0
+     ],
+     "base": [
+      77.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "182",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      37.5,
+      91.0
+     ],
+     "p2": [
+      37.5,
+      100.0
+     ],
+     "base": [
+      77.5,
+      95.5
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "9",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      37.5,
+      -100.0
+     ],
+     "p2": [
+      37.5,
+      100.0
+     ],
+     "base": [
+      112.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "200",
+     "text_height": 3.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -77.5,
+      0
+     ],
+     "p2": [
+      77.5,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -140.0
+     ],
+     "p2": [
+      0,
+      140.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      190.0
+     ],
+     "s": "SECCIÓN",
+     "h": 3.5,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -77.5,
+      -215.0
+     ],
+     "s": "A = 24.4 cm²    PESO = 19.2 kg/m",
+     "h": 2.5,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -77.5,
+      -223.0
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 2.5,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -245.0
+     ],
+     "s": "CANAL C   -  ESC 1:10",
+     "h": 4.5,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "angulo_L_manual",
+  "params": {
+   "tipo": "Ángulo L",
+   "serie": "—",
+   "d": 100,
+   "bf": 75,
+   "tw": 8.0,
+   "tf": 8.0,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -50.0,
+       -37.5
+      ],
+      [
+       50.0,
+       -37.5
+      ],
+      [
+       50.0,
+       -29.5
+      ],
+      [
+       -42.0,
+       -29.5
+      ],
+      [
+       -42.0,
+       37.5
+      ],
+      [
+       -50.0,
+       37.5
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -50.0,
+      -37.5
+     ],
+     "p2": [
+      -42.0,
+      -37.5
+     ],
+     "base": [
+      -46.0,
+      -117.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -42.0,
+      -37.5
+     ],
+     "p2": [
+      50.0,
+      -37.5
+     ],
+     "base": [
+      4.0,
+      -117.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "92",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -50.0,
+      -37.5
+     ],
+     "p2": [
+      50.0,
+      -37.5
+     ],
+     "base": [
+      0.0,
+      -187.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "100",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.0,
+      -37.5
+     ],
+     "p2": [
+      50.0,
+      -29.5
+     ],
+     "base": [
+      130.0,
+      -33.5
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.0,
+      -29.5
+     ],
+     "p2": [
+      50.0,
+      37.5
+     ],
+     "base": [
+      130.0,
+      4.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "67",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      50.0,
+      -37.5
+     ],
+     "p2": [
+      50.0,
+      37.5
+     ],
+     "base": [
+      200.0,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "75",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -117.5,
+      0
+     ],
+     "p2": [
+      117.5,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -130.0
+     ],
+     "p2": [
+      0,
+      130.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      230.0
+     ],
+     "s": "SECCIÓN",
+     "h": 7.0,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -117.5,
+      -280.0
+     ],
+     "s": "A = 13.4 cm²    PESO = 10.5 kg/m",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -117.5,
+      -296.0
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -340.0
+     ],
+     "s": "ÁNGULO L   -  ESC 1:20",
+     "h": 9.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "T_manual",
+  "params": {
+   "tipo": "T",
+   "serie": "—",
+   "d": 300,
+   "bf": 200,
+   "tw": 10.0,
+   "tf": 12.0,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -100.0,
+       150.0
+      ],
+      [
+       100.0,
+       150.0
+      ],
+      [
+       100.0,
+       138.0
+      ],
+      [
+       5.0,
+       138.0
+      ],
+      [
+       5.0,
+       -150.0
+      ],
+      [
+       -5.0,
+       -150.0
+      ],
+      [
+       -5.0,
+       138.0
+      ],
+      [
+       -100.0,
+       138.0
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -100.0,
+      -150.0
+     ],
+     "p2": [
+      -5.0,
+      -150.0
+     ],
+     "base": [
+      -52.5,
+      -230.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "95",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -5.0,
+      -150.0
+     ],
+     "p2": [
+      5.0,
+      -150.0
+     ],
+     "base": [
+      0.0,
+      -230.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "10",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      5.0,
+      -150.0
+     ],
+     "p2": [
+      100.0,
+      -150.0
+     ],
+     "base": [
+      52.5,
+      -230.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "95",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -100.0,
+      -150.0
+     ],
+     "p2": [
+      100.0,
+      -150.0
+     ],
+     "base": [
+      0.0,
+      -300.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "200",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      100.0,
+      -150.0
+     ],
+     "p2": [
+      100.0,
+      138.0
+     ],
+     "base": [
+      180.0,
+      -6.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "288",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      100.0,
+      138.0
+     ],
+     "p2": [
+      100.0,
+      150.0
+     ],
+     "base": [
+      180.0,
+      144.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "12",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      100.0,
+      -150.0
+     ],
+     "p2": [
+      100.0,
+      150.0
+     ],
+     "base": [
+      250.0,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "300",
+     "text_height": 6.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -180.0,
+      0
+     ],
+     "p2": [
+      180.0,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -230.0
+     ],
+     "p2": [
+      0,
+      230.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      330.0
+     ],
+     "s": "SECCIÓN",
+     "h": 7.0,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -180.0,
+      -380.0
+     ],
+     "s": "A = 52.8 cm²    PESO = 41.4 kg/m",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -180.0,
+      -396.0
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 5.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -440.0
+     ],
+     "s": "T   -  ESC 1:20",
+     "h": 9.0,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ },
+ {
+  "nombre": "caja_HSS_manual",
+  "params": {
+   "tipo": "Caja HSS",
+   "serie": "—",
+   "d": 200,
+   "bf": 150,
+   "tw": 8.0,
+   "tf": 8.0,
+   "escala": "1:25",
+   "_escala": 2.5
+  },
+  "drawing": {
+   "_t": "Drawing",
+   "title": "",
+   "ents": [
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -75.0,
+       -100.0
+      ],
+      [
+       75.0,
+       -100.0
+      ],
+      [
+       75.0,
+       100.0
+      ],
+      [
+       -75.0,
+       100.0
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Poly",
+     "pts": [
+      [
+       -67.0,
+       -92.0
+      ],
+      [
+       67.0,
+       -92.0
+      ],
+      [
+       67.0,
+       92.0
+      ],
+      [
+       -67.0,
+       92.0
+      ]
+     ],
+     "closed": true,
+     "layer": "CONCRETO",
+     "width": 0.0
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -75.0,
+      -100.0
+     ],
+     "p2": [
+      -67.0,
+      -100.0
+     ],
+     "base": [
+      -71.0,
+      -200.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -67.0,
+      -100.0
+     ],
+     "p2": [
+      67.0,
+      -100.0
+     ],
+     "base": [
+      0.0,
+      -200.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "134",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      67.0,
+      -100.0
+     ],
+     "p2": [
+      75.0,
+      -100.0
+     ],
+     "base": [
+      71.0,
+      -200.0
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      -75.0,
+      -100.0
+     ],
+     "p2": [
+      75.0,
+      -100.0
+     ],
+     "base": [
+      0.0,
+      -287.5
+     ],
+     "vertical": false,
+     "layer": "ACOTADO",
+     "txt": "150",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      75.0,
+      -100.0
+     ],
+     "p2": [
+      75.0,
+      -92.0
+     ],
+     "base": [
+      175.0,
+      -96.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      75.0,
+      -92.0
+     ],
+     "p2": [
+      75.0,
+      92.0
+     ],
+     "base": [
+      175.0,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "184",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      75.0,
+      92.0
+     ],
+     "p2": [
+      75.0,
+      100.0
+     ],
+     "base": [
+      175.0,
+      96.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "8",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Dim",
+     "p1": [
+      75.0,
+      -100.0
+     ],
+     "p2": [
+      75.0,
+      100.0
+     ],
+     "base": [
+      262.5,
+      0.0
+     ],
+     "vertical": true,
+     "layer": "ACOTADO",
+     "txt": "200",
+     "text_height": 7.5
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      -175.0,
+      0
+     ],
+     "p2": [
+      175.0,
+      0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Line",
+     "p1": [
+      0,
+      -200.0
+     ],
+     "p2": [
+      0,
+      200.0
+     ],
+     "layer": "EJE",
+     "width": 0.0
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      325.0
+     ],
+     "s": "SECCIÓN",
+     "h": 8.75,
+     "rot": 0.0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -175.0,
+      -387.5
+     ],
+     "s": "A = 53.4 cm²    PESO = 42.0 kg/m",
+     "h": 6.25,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      -175.0,
+      -407.5
+     ],
+     "s": "PROPIEDADES APROXIMADAS, SIN RADIOS DE UNIÓN",
+     "h": 6.25,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "l",
+     "va": "m"
+    },
+    {
+     "_t": "Text",
+     "pos": [
+      0,
+      -462.5
+     ],
+     "s": "CAJA HSS   -  ESC 1:25",
+     "h": 11.25,
+     "rot": 0,
+     "layer": "TEXTOS",
+     "ha": "c",
+     "va": "m"
+    }
+   ]
+  }
+ }
+]

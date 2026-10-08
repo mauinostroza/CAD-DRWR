@@ -1,0 +1,146 @@
+[
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "serie",
+  "valor": "W310X39",
+  "despues": {
+   "tipo": "Perfil I / W",
+   "serie": "W310X39",
+   "d": 310,
+   "bf": 165,
+   "tw": 5.8,
+   "tf": 10.2,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ },
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "serie",
+  "valor": "HE240A",
+  "despues": {
+   "tipo": "Perfil I / W",
+   "serie": "HE240A",
+   "d": 230,
+   "bf": 240,
+   "tw": 7.5,
+   "tf": 12.0,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ },
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "serie",
+  "valor": "—",
+  "despues": {
+   "tipo": "Perfil I / W",
+   "serie": "—",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ },
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "tipo",
+  "valor": "Canal C",
+  "despues": {
+   "tipo": "Canal C",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ },
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "—",
+   "d": 300,
+   "bf": 200,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "serie",
+  "valor": "W530X66",
+  "despues": {
+   "tipo": "Perfil I / W",
+   "serie": "W530X66",
+   "d": 533,
+   "bf": 165,
+   "tw": 7.5,
+   "tf": 13.5,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ },
+ {
+  "antes": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  },
+  "campo": "d",
+  "valor": 300,
+  "despues": {
+   "tipo": "Perfil I / W",
+   "serie": "W250X25",
+   "d": 257,
+   "bf": 101,
+   "tw": 5.8,
+   "tf": 8.4,
+   "escala": "1:20",
+   "_escala": 2.0
+  }
+ }
+]
