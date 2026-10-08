@@ -21,7 +21,6 @@ Errores: validación = 422 con mensaje en español (sólo para estas rutas);
 COM / sesión / timeout = 409 con el detalle real de la excepción.
 """
 
-import inspect
 import math
 import queue
 import threading
@@ -31,8 +30,8 @@ from concurrent.futures import Future
 from concurrent.futures import TimeoutError as _FuturoTimeout
 from typing import Annotated, Literal, Optional, Union
 
-from fastapi import HTTPException
-from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi import APIRouter, HTTPException
+from fastapi.routing import APIRoute
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -233,16 +232,21 @@ def _mensaje_es(err: dict) -> str:
     return plantilla.format_map(_Faltan(ctx))
 
 
-def _crear_handler_422(previo):
-    """Respuesta 422 en español para las rutas CAD; el resto delega en `previo`."""
-    async def manejador(request, exc):
-        if not request.url.path.startswith(PREFIJO):
-            res = previo(request, exc)
-            return await res if inspect.isawaitable(res) else res
-        detalle = [{"loc": list(e.get("loc", ())), "msg": _mensaje_es(e),
-                    "type": e.get("type", "")} for e in exc.errors()]
-        return JSONResponse(status_code=422, content={"detail": detalle})
-    return manejador
+class _RutaCad(APIRoute):
+    """Ruta que responde los errores de validación en español (422) sin
+    registrar manejadores globales en la app anfitriona."""
+
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def manejador(request):
+            try:
+                return await original(request)
+            except RequestValidationError as exc:
+                detalle = [{"loc": list(e.get("loc", ())), "msg": _mensaje_es(e),
+                            "type": e.get("type", "")} for e in exc.errors()]
+                return JSONResponse(status_code=422, content={"detail": detalle})
+        return manejador
 
 
 def _error_422(loc, msg: str, tipo: str = "value_error") -> HTTPException:
@@ -483,29 +487,28 @@ def install_routes(app, call=None):
     del call
     servicio = ServicioCad()
 
-    previo = app.exception_handlers.get(RequestValidationError,
-                                        request_validation_exception_handler)
-    app.add_exception_handler(RequestValidationError, _crear_handler_422(previo))
+    router = APIRouter(route_class=_RutaCad)
 
-    @app.post(PREFIJO + "/status")
+    @router.post(PREFIJO + "/status")
     def cad_status(body: Optional[StatusIn] = None):
         return servicio.status()
 
-    @app.post(PREFIJO + "/pick")
+    @router.post(PREFIJO + "/pick")
     def cad_pick(body: PickIn):
         return servicio.pick(body.mensaje, body.timeout_s)
 
-    @app.post(PREFIJO + "/draw/begin")
+    @router.post(PREFIJO + "/draw/begin")
     def cad_draw_begin(body: BeginIn):
         return servicio.begin(body.origen, body.n_total, body.th)
 
-    @app.post(PREFIJO + "/draw/batch")
+    @router.post(PREFIJO + "/draw/batch")
     def cad_draw_batch(body: BatchIn):
         pares = [(e.t, _a_ir(e)) for e in body.ents]
         return servicio.batch(body.sesion, pares)
 
-    @app.post(PREFIJO + "/draw/end")
+    @router.post(PREFIJO + "/draw/end")
     def cad_draw_end(body: EndIn):
         return servicio.end(body.sesion)
 
+    app.include_router(router)
     return servicio

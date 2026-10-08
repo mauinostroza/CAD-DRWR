@@ -1,0 +1,19 @@
+{
+  "routes": {
+    "POST /v1/sap/actions/cad/status": {
+      "keys": ["conectado", "programa", "version", "documento", "detalle"]
+    },
+    "POST /v1/sap/actions/cad/pick": {
+      "keys": ["x", "y"]
+    },
+    "POST /v1/sap/actions/cad/draw/begin": {
+      "keys": ["sesion", "programa", "documento"]
+    },
+    "POST /v1/sap/actions/cad/draw/batch": {
+      "keys": ["creadas", "omitidas", "errores"]
+    },
+    "POST /v1/sap/actions/cad/draw/end": {
+      "keys": ["documento", "creadas", "omitidas", "resumen"]
+    }
+  }
+}
