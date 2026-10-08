@@ -180,7 +180,7 @@ def _pedir_get_point(doc, mensaje, pythoncom):
             raise
 
 
-def _pedir_punto_por_comando(doc, mensaje, pythoncom, tiempo_maximo: float = 600.0):
+def _pedir_punto_por_comando(doc, mensaje, pythoncom, tiempo_maximo: float = 600.0, cancelar=None):
     """Pide un punto mediante el *command loop* propio del CAD.
 
     ``Utility.GetPoint`` es una llamada COM interactiva. En algunas
@@ -221,19 +221,38 @@ def _pedir_punto_por_comando(doc, mensaje, pythoncom, tiempo_maximo: float = 600
         # retorna de inmediato al requerir interacción del usuario.
         doc.SendCommand(comando)
         fin = time.monotonic() + tiempo_maximo
+        ultimo, errores, ultimo_error = None, 0, None
         while time.monotonic() < fin:
             try:
                 pythoncom.PumpWaitingMessages()
             except Exception:
                 pass
-            estado = float(doc.GetVariable("USERR3"))
+            if cancelar is not None and cancelar.is_set():
+                _cancelar_comando(doc)
+                raise RuntimeError("Selección de punto cancelada.")
+            try:
+                estado = float(doc.GetVariable("USERR3"))
+                errores = 0
+            except Exception as exc:  # el CAD puede rechazar llamadas COM mientras espera el clic
+                errores += 1
+                ultimo_error = f"{type(exc).__name__}: {exc}"
+                if errores > 200:
+                    _cancelar_comando(doc)
+                    raise RuntimeError(f"El CAD no responde a la consulta del clic: {ultimo_error}") from exc
+                time.sleep(0.05)
+                continue
+            ultimo = estado
             if estado == -marcador:
                 return (float(doc.GetVariable("USERR1")), float(doc.GetVariable("USERR2")))
             if estado == 0:
                 raise RuntimeError("Selección de punto cancelada.")
             time.sleep(0.05)
+        _cancelar_comando(doc)
         raise RuntimeError(
-            "El CAD no terminó la selección de punto. Presione Esc en el CAD y vuelva a intentarlo."
+            "El CAD no terminó la selección de punto "
+            f"(USERR3={ultimo}, esperado {-marcador}"
+            + (f"; último error COM: {ultimo_error}" if ultimo_error else "")
+            + "). Presione Esc en el CAD y vuelva a intentarlo."
         )
     finally:
         for nombre, valor in zip(("USERR1", "USERR2", "USERR3"), anteriores):
@@ -241,6 +260,14 @@ def _pedir_punto_por_comando(doc, mensaje, pythoncom, tiempo_maximo: float = 600
                 doc.SetVariable(nombre, valor)
             except Exception:
                 pass
+
+
+def _cancelar_comando(doc):
+    """Cancela el comando pendiente del CAD (equivale a pulsar Esc dos veces)."""
+    try:
+        doc.SendCommand("\x03\x03")
+    except Exception:
+        pass
 
 
 def traer_al_frente(app):
@@ -628,7 +655,7 @@ def abrir_dxf_en_cad(path: str) -> str:
     return enviar_dibujo(Drawing(), abrir=path)
 
 
-def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: ", app=None, doc=None):
+def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: ", app=None, doc=None, cancelar=None):
     """Activa el documento del CAD y pide al usuario un clic en pantalla
     (comando nativo GetPoint). Devuelve (x, y) en coordenadas de modelo
     del CAD. Lanza RuntimeError si no hay CAD/documento, si se cancela
@@ -660,7 +687,7 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
             # No usar Utility.GetPoint aquí. En ZWCAD puede lanzar
             # RPC_E_SERVERFAULT al entrar en modo interactivo desde COM; el
             # command loop nativo sí recibe el clic de forma estable.
-            pt = _pedir_punto_por_comando(doc, mensaje, pythoncom)
+            pt = _pedir_punto_por_comando(doc, mensaje, pythoncom, cancelar=cancelar)
         except RuntimeError:
             raise
         except Exception as exc:

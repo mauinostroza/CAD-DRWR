@@ -130,7 +130,17 @@ export const pickCad = (
   creds: BridgeCreds,
   body: { mensaje?: string; timeout_s?: number } = {},
   signal?: AbortSignal,
-) => llamar<PuntoClic>(creds, '/pick', body, signal)
+) => {
+  // Al cancelar, avisa al puente: si no, el hilo COM seguiría esperando el clic.
+  signal?.addEventListener(
+    'abort',
+    () => {
+      void llamar(creds, '/pick/cancel', {}).catch(() => undefined)
+    },
+    { once: true },
+  )
+  return llamar<PuntoClic>(creds, '/pick', body, signal)
+}
 
 export const beginCad = (
   creds: BridgeCreds,

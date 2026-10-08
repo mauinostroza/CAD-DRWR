@@ -6,6 +6,9 @@
     "POST /v1/sap/actions/cad/pick": {
       "keys": ["x", "y"]
     },
+    "POST /v1/sap/actions/cad/pick/cancel": {
+      "keys": ["cancelado"]
+    },
     "POST /v1/sap/actions/cad/draw/begin": {
       "keys": ["sesion", "programa", "documento"]
     },
