@@ -198,9 +198,7 @@ describe('CadDrwrPage', () => {
     await user.click(screen.getByRole('button', { name: 'Plantillas' }))
     await user.type(screen.getByLabelText('Nombre de la plantilla'), 'Base ancha')
     await user.click(screen.getByRole('button', { name: 'Guardar actual' }))
-    expect(
-      screen.getByRole('button', { name: 'Aplicar plantilla Base ancha' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Aplicar plantilla Base ancha' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Deshacer' }))
     await waitFor(() => expect(campo).toHaveValue(440))
