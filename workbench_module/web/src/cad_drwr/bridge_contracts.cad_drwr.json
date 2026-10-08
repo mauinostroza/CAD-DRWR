@@ -14,6 +14,19 @@
     },
     "POST /v1/sap/actions/cad/draw/end": {
       "keys": ["documento", "creadas", "omitidas", "resumen"]
+    },
+    "POST /v1/sap/actions/cad/sap/groups": {
+      "keys": ["grupos"]
+    },
+    "POST /v1/sap/actions/cad/sap/foundation/start": {
+      "keys": ["job"]
+    },
+    "POST /v1/sap/actions/cad/sap/foundation/status": {
+      "keys": ["estado", "etapa", "hechas", "total", "transcurrido_s", "resultado", "error"],
+      "opcionales": ["resultado", "error"]
+    },
+    "POST /v1/sap/actions/cad/sap/foundation/cancel": {
+      "keys": ["cancelado"]
     }
   }
 }

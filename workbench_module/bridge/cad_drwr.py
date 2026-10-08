@@ -481,10 +481,11 @@ class ServicioCad:
 def install_routes(app, call=None):
     """Monta las rutas del puente CAD en `app`.
 
-    `call` se acepta por compatibilidad con el resto de puentes y NO se usa:
-    las llamadas COM van siempre por el CadActor propio de este módulo.
+    Las rutas CAD usan siempre el CadActor propio de este módulo; `call`
+    NO se usa para ellas. Si se pasa `call` (actor STA del puente
+    anfitrión), además se montan las rutas de lectura de SAP2000
+    (bridge.cad_drwr_sap). Sin `call` solo se montan las rutas CAD.
     """
-    del call
     servicio = ServicioCad()
 
     router = APIRouter(route_class=_RutaCad)
@@ -511,4 +512,9 @@ def install_routes(app, call=None):
         return servicio.end(body.sesion)
 
     app.include_router(router)
+    if call is not None:
+        # Importación perezosa: bridge.cad_drwr_sap importa _RutaCad de este
+        # módulo, así que no puede importarse al cargar cad_drwr.
+        from bridge import cad_drwr_sap
+        cad_drwr_sap.install_routes(app, call)
     return servicio

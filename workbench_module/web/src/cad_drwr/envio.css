@@ -1,0 +1,154 @@
+/* Diálogo de envío al CAD (ZWCAD/AutoCAD). Colores con variables CSS y valores por defecto. */
+.envio-cad-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.envio-cad {
+  box-sizing: border-box;
+  display: grid;
+  gap: 10px;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--cad-border, #3a3d46);
+  border-radius: 8px;
+  background: var(--cad-bg, #1b1c20);
+  color: var(--cad-fg, #e6e6e6);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.envio-cad:focus {
+  outline: 2px solid var(--cad-acento, #4f8cff);
+  outline-offset: 2px;
+}
+
+.envio-cad h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.envio-cad p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.envio-cad-nombre {
+  opacity: 0.8;
+}
+
+.envio-cad-opciones {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.envio-cad-opciones label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.envio-cad-aviso {
+  color: var(--cad-aviso, #e0b341);
+}
+
+.envio-cad-error {
+  color: var(--cad-error, #ff7b7b);
+}
+
+.envio-cad-espera {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--cad-acento-suave, rgba(79, 140, 255, 0.18));
+  font-weight: 600;
+}
+
+.envio-cad-barra-fondo {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--cad-border, #3a3d46);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.envio-cad-barra {
+  height: 100%;
+  background: var(--cad-acento, #4f8cff);
+  transition: width 0.2s ease;
+}
+
+.envio-cad-cifras {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.envio-cad-acciones,
+.envio-cad-pie {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.envio-cad-fondo button {
+  padding: 4px 12px;
+  border: 1px solid var(--cad-border, #3a3d46);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.envio-cad-fondo button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.envio-cad-fondo button:not(:disabled):hover {
+  border-color: var(--cad-acento, #4f8cff);
+}
+
+.envio-cad details {
+  max-height: 240px;
+  overflow: auto;
+  border: 1px solid var(--cad-border, #3a3d46);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.envio-cad details table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+
+.envio-cad details th,
+.envio-cad details td {
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--cad-border, #3a3d46);
+  text-align: left;
+  vertical-align: top;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .envio-cad {
+    --cad-bg: #ffffff;
+    --cad-fg: #1d1f24;
+    --cad-border: #c9ccd4;
+    --cad-acento: #2563eb;
+    --cad-acento-suave: rgba(37, 99, 235, 0.12);
+    --cad-error: #b42318;
+    --cad-aviso: #8a5a00;
+  }
+}

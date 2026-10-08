@@ -628,7 +628,9 @@ def test_contrato_cubre_exactamente_las_rutas_montadas(cliente):
     # openapi es estable entre versiones de FastAPI (include_router cambió de forma)
     rutas = {f"POST {ruta}" for ruta, ops in cli.app.openapi()["paths"].items()
              if ruta.startswith(PREF) and "post" in ops}
-    assert set(contrato()) == rutas
+    # Las rutas SAP solo se montan si se pasa `call`; se verifican aparte
+    # en tests/test_bridge_cad_drwr_sap.py.
+    assert {r for r in contrato() if "/cad/sap/" not in r} == rutas
     for ruta, spec in contrato().items():
         assert spec["keys"], ruta
         assert len(set(spec["keys"])) == len(spec["keys"]), ruta
