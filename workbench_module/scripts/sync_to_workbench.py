@@ -12,6 +12,7 @@ el ancla esperada no existe (el workbench cambió y hay que revisar el script).
 import argparse
 import json
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -74,9 +75,15 @@ def copiar(target, log):
 
 
 def parchear_integrados(target, log):
+    """Añade la entrada AL FINAL de MODULOS (el orden lo fija tests/test_integrados.py)."""
     p = target / "backend/integrados.py"
     t = p.read_text(encoding="utf-8")
-    ancla = "        router='backend.routers.equilibrio:router',\n        requiere=(),\n    ),\n"
+    if "app_id='cad_drwr'" in t:
+        log.append("sin cambio backend/integrados.py (ya aplicado)")
+        return
+    ancla = "\n)\n\n_ERRORES"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("backend/integrados.py: no se encontró el cierre de MODULOS")
     nuevo = (
         "    ModuloIntegrado(\n"
         "        app_id='cad_drwr',\n"
@@ -85,11 +92,11 @@ def parchear_integrados(target, log):
         "fundaciones SAP2000) con exportación DXF y envío a ZWCAD/AutoCAD.',\n"
         "        router='backend.routers.cad_drwr:router',\n"
         "        requiere=(),\n"
-        "    ),\n"
+        "    ),"
     )
-    t, c = reemplazar_una_vez(t, ancla, nuevo, "app_id='cad_drwr'", "backend/integrados.py")
-    escribir(p, t, c, log, "backend/integrados.py")
-
+    t = t.replace(ancla, "\n" + nuevo + ancla, 1)
+    p.write_text(t, encoding="utf-8")
+    log.append("editado   backend/integrados.py")
 
 def parchear_actions(target, log):
     p = target / "bridge/actions.py"
@@ -148,61 +155,130 @@ def parchear_iconos(target, log):
     log.append("editado   web/src/icons.tsx (+CadDrwrIcon)")
 
 
+def siguiente_short(texto):
+    cifras = [int(n) for n in re.findall(r"short: '(\d+)'", texto)]
+    return f"{max(cifras) + 1:02d}"
+
+
 def parchear_shell(target, log):
+    """Registra la ruta con anclas relativas al FINAL de cada bloque (el workbench sigue creciendo)."""
     p = target / "web/src/Shell.tsx"
     t = p.read_text(encoding="utf-8")
-    cambios = False
-    pasos = [
-        ("import {\n  ArrowIcon,\n", "  CadDrwrIcon,\n", "CadDrwrIcon,"),
-        ("| 'hormigon' | 'equilibrio'", " | 'cad_drwr'", "| 'cad_drwr'"),
-        ("const cargarEquilibrio = () => import('./equilibrio/EquilibrioPage')\n",
-         "const cargarCadDrwr = () => import('./cad_drwr/CadDrwrPage')\n", "const cargarCadDrwr"),
-        ("    icon: EquilibrioIcon,\n  },\n",
-         "  {\n    id: 'cad_drwr',\n    label: 'CAD-DRWR',\n    short: '13',\n"
-         "    description: 'Detalles estructurales 2D con exportación DXF y envío a ZWCAD/AutoCAD.',\n"
-         "    icon: CadDrwrIcon,\n  },\n", "id: 'cad_drwr'"),
-        ("            nombre=\"Equilibrio plástico\"\n            state={props.state}\n"
-         "            onState={props.onState}\n            onReport={props.onReport}\n"
-         "            onReportBundle={props.onReportBundle}\n          />\n        )\n",
-         "      case 'cad_drwr':\n        return (\n          <ModuloDiferido\n            cargar={cargarCadDrwr}\n"
-         "            nombre=\"CAD-DRWR\"\n            state={props.state}\n            onState={props.onState}\n"
-         "            onReport={props.onReport}\n            onReportBundle={props.onReportBundle}\n          />\n        )\n",
-         "case 'cad_drwr'"),
-    ]
-    for ancla, nuevo, marca in pasos:
-        t, c = reemplazar_una_vez(t, ancla, nuevo, marca, "web/src/Shell.tsx")
-        cambios = cambios or c
-    escribir(p, t, cambios, log, "web/src/Shell.tsx")
-
+    if "id: 'cad_drwr'" in t:
+        log.append("sin cambio web/src/Shell.tsx (ya aplicado)")
+        return
+    # 1) icono en el import
+    ancla = "import {\n  ArrowIcon,\n"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("web/src/Shell.tsx: no se encontró el import de iconos")
+    t = t.replace(ancla, ancla + "  CadDrwrIcon,\n", 1)
+    # 2) tipo Route (se añade al final de la línea)
+    m = re.search(r"^type Route = .*$", t, flags=re.M)
+    if not m:
+        raise AnclaFaltante("web/src/Shell.tsx: no se encontró `type Route`")
+    t = t[: m.end()] + " | 'cad_drwr'" + t[m.end():]
+    # 3) cargador perezoso tras el último `const cargarX`
+    cargas = list(re.finditer(r"^const cargar\w+ = \(\) => import\([^)]*\)\n", t, flags=re.M))
+    if not cargas:
+        raise AnclaFaltante("web/src/Shell.tsx: no se encontraron cargadores perezosos")
+    t = t[: cargas[-1].end()] + "const cargarCadDrwr = () => import('./cad_drwr/CadDrwrPage')\n" + t[cargas[-1].end():]
+    # 4) entrada de `routes` justo antes de la ruta `sap`
+    short = siguiente_short(t)
+    ancla = "  {\n    id: 'sap',\n"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("web/src/Shell.tsx: no se encontró la entrada `sap` de routes")
+    entrada = (
+        "  {\n    id: 'cad_drwr',\n    label: 'CAD-DRWR',\n"
+        f"    short: '{short}',\n"
+        "    description: 'Detalles estructurales 2D con exportación DXF y envío a ZWCAD/AutoCAD.',\n"
+        "    icon: CadDrwrIcon,\n  },\n"
+    )
+    t = t.replace(ancla, entrada + ancla, 1)
+    # 5) caso de la página justo antes de `case 'sap':`
+    ancla = "      case 'sap':\n"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("web/src/Shell.tsx: no se encontró `case 'sap':`")
+    caso = (
+        "      case 'cad_drwr':\n        return (\n          <ModuloDiferido\n            cargar={cargarCadDrwr}\n"
+        "            nombre=\"CAD-DRWR\"\n            state={props.state}\n            onState={props.onState}\n"
+        "            onReport={props.onReport}\n            onReportBundle={props.onReportBundle}\n          />\n        )\n"
+    )
+    t = t.replace(ancla, caso + ancla, 1)
+    p.write_text(t, encoding="utf-8")
+    log.append(f"editado   web/src/Shell.tsx (short '{short}')")
 
 def parchear_test_integrados(target, log):
     p = target / "tests/test_integrados.py"
     t = p.read_text(encoding="utf-8")
-    ancla = "        'equilibrio_plastico',\n"
-    t, c = reemplazar_una_vez(t, ancla, "        'cad_drwr',\n", "'cad_drwr'", "tests/test_integrados.py")
-    escribir(p, t, c, log, "tests/test_integrados.py")
+    if "'cad_drwr'" in t:
+        log.append("sin cambio tests/test_integrados.py (ya aplicado)")
+        return
+    m = re.search(r"(        '[a-z_]+',\n)(    \]\n    assert all\(a\['status'\] == 'available' for a in body\[)", t)
+    if not m:
+        raise AnclaFaltante("tests/test_integrados.py: no se encontró la lista de módulos integrados")
+    t = t[: m.end(1)] + "        'cad_drwr',\n" + t[m.end(1):]
+    p.write_text(t, encoding="utf-8")
+    log.append("editado   tests/test_integrados.py")
+
+def contar_herramientas(target):
+    """Módulos de la métrica «N módulos» del Resumen: rutas salvo `overview` y `sap`."""
+    t = (target / "web/src/Shell.tsx").read_text(encoding="utf-8")
+    bloque = t[t.index("const routes:"): t.index("]\n", t.index("const routes:"))]
+    ids = re.findall(r"id: '(\w+)'", bloque)
+    return len([i for i in ids if i not in ("overview", "sap")])
 
 
 def parchear_shell_test(target, log, autorizado):
-    """`Shell.test.tsx` fija «10 módulos»: con CAD-DRWR son 11. Es un test existente (check_protected
-    prohíbe borrar sus líneas), así que SOLO se edita con autorización explícita del usuario."""
+    """`Shell.test.tsx` fija «N módulos»: al sumar CAD-DRWR cambia. Es un test existente (check_protected
+    prohíbe borrar sus líneas), así que SOLO se edita con autorización explícita del usuario.
+    Idempotente y robusto: fija el número en el conteo REAL de rutas del Shell ya parcheado."""
     p = target / "web/src/Shell.test.tsx"
     t = p.read_text(encoding="utf-8")
-    if "con 11 módulos" in t:
-        log.append("sin cambio web/src/Shell.test.tsx (ya aplicado)")
+    n = contar_herramientas(target)
+    pat_a = re.compile(r"con (\d+) módulos', async")
+    pat_b = re.compile(r"getByText\('(\d+) módulos'\)")
+    ma, mb = pat_a.search(t), pat_b.search(t)
+    if not ma or not mb:
+        raise AnclaFaltante("web/src/Shell.test.tsx: no se encontró la métrica de módulos")
+    if int(ma.group(1)) == n and int(mb.group(1)) == n:
+        log.append(f"sin cambio web/src/Shell.test.tsx (ya dice {n} módulos)")
         return
     if not autorizado:
-        log.append("PENDIENTE web/src/Shell.test.tsx: requiere autorización (cambia «10 módulos» por «11 módulos»; "
-                   "usa --autorizar-shell-test)")
+        log.append(f"PENDIENTE web/src/Shell.test.tsx: requiere autorización (cambia «{ma.group(1)} módulos» por "
+                   f"«{n} módulos»; usa --autorizar-shell-test)")
         return
-    viejo_a = "con 10 módulos', async"
-    viejo_b = "getByText('10 módulos')"
-    if t.count(viejo_a) != 1 or t.count(viejo_b) != 1:
-        raise AnclaFaltante("web/src/Shell.test.tsx: no se encontró la métrica de módulos")
-    t = t.replace(viejo_a, "con 11 módulos', async").replace(viejo_b, "getByText('11 módulos')")
+    t = pat_a.sub(f"con {n} módulos', async", t, count=1)
+    t = pat_b.sub(f"getByText('{n} módulos')", t, count=1)
     p.write_text(t, encoding="utf-8")
-    log.append("editado   web/src/Shell.test.tsx (AUTORIZADO: 10 -> 11 módulos)")
+    log.append(f"editado   web/src/Shell.test.tsx (AUTORIZADO: {ma.group(1)} -> {n} módulos)")
 
+
+def parchear_browser_check(target, log):
+    """Escenario de navegador de CAD-DRWR en scripts/browser_check_modulos.cjs (herramienta de verificación)."""
+    p = target / "scripts/browser_check_modulos.cjs"
+    t = p.read_text(encoding="utf-8")
+    if "escenarioCadDrwr" in t:
+        log.append("sin cambio scripts/browser_check_modulos.cjs (ya aplicado)")
+        return
+    n = contar_herramientas(target)
+    # etiqueta (último elemento de ETIQUETAS)
+    m = re.search(r"(const ETIQUETAS = \{\n(?:  \w+: '[^']*',\n)+)", t)
+    if not m:
+        raise AnclaFaltante("scripts/browser_check_modulos.cjs: no se encontró ETIQUETAS")
+    t = t[: m.end(1)] + "  cad_drwr: 'CAD-DRWR',\n" + t[m.end(1):]
+    # escenario antes de `const escenarios = {`
+    ancla = "const escenarios = {\n"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("scripts/browser_check_modulos.cjs: no se encontró `const escenarios`")
+    escenario = (ORIGEN / "scripts/escenario_cad_drwr.cjs.txt").read_text(encoding="utf-8")
+    t = t.replace(ancla, escenario + ancla, 1)
+    # entrada al final del objeto escenarios
+    m = re.search(r"(const escenarios = \{\n(?:  \w+: \w+,\n)+)", t)
+    t = t[: m.end(1)] + "  cad_drwr: escenarioCadDrwr,\n" + t[m.end(1):]
+    # métrica esperada por defecto
+    t, k = re.subn(r"(const EXPECTED_MODULES = process\.env\.EXPECTED_MODULES \|\| ')\d+(')", rf"\g<1>{n}\g<2>", t)
+    p.write_text(t, encoding="utf-8")
+    log.append(f"editado   scripts/browser_check_modulos.cjs (+escenario, EXPECTED_MODULES={n})")
 
 def anexar_doc(target, rel, fuente, commit, log):
     p = target / rel
@@ -219,23 +295,23 @@ def anexar_doc(target, rel, fuente, commit, log):
 def parchear_ruff(target, log):
     p = target / "pyproject.toml"
     t = p.read_text(encoding="utf-8")
-    ancla = '"backend/motor_calculo/equilibrio_plastico/**" = '
-    marca = '"backend/motor_calculo/cad_drwr/**"'
-    if marca in t:
+    if '"backend/motor_calculo/cad_drwr/**"' in t:
         log.append("sin cambio pyproject.toml (ya aplicado)")
         return
-    i = t.index(ancla)
-    j = t.index("\n", i) + 1
-    reglas = ('"backend/motor_calculo/cad_drwr/**" = ["UP006", "UP007", "UP009", "UP015", "UP031", "UP032", "UP035", "UP037", "UP045",'
-              ' "F401", "F841", "I001", "E401", "E701", "E702", "E731", "B006", "B007", "B904", "E501"]'
-              '  # copia literal del motor del escritorio: se conserva el estilo original\n'
-              '"bridge/cad_com_live.py" = ["UP006", "UP007", "UP009", "UP031", "UP035", "UP037", "UP045", "UP015", "UP032", "F401", "F841", "I001",'
-              ' "E701", "E702", "B904", "B007", "E501"]  # copia casi literal de cad/com_live.py\n'
-              '"bridge/cad_sap_link.py" = ["UP006", "UP007", "UP009", "UP031", "UP035", "UP037", "UP045", "UP015", "UP032", "F401", "F841", "I001",'
-              ' "E701", "E702", "B904", "B007", "E501"]  # copia casi literal de cad/sap2000_link.py\n')
-    p.write_text(t[:j] + reglas + t[j:], encoding="utf-8")
+    ancla = "\n[tool.ruff.format]"
+    if t.count(ancla) != 1:
+        raise AnclaFaltante("pyproject.toml: no se encontró [tool.ruff.format]")
+    comunes = ('"UP006", "UP007", "UP009", "UP015", "UP031", "UP032", "UP035", "UP037", "UP045", '
+               '"F401", "F841", "I001", "E401", "E701", "E702", "E731", "B006", "B007", "B904", "E501"')
+    reglas = (
+        f'"backend/motor_calculo/cad_drwr/**" = [{comunes}]'
+        "  # copia literal del motor del escritorio: se conserva el estilo original\n"
+        f'"bridge/cad_com_live.py" = [{comunes}]  # copia casi literal de cad/com_live.py\n'
+        f'"bridge/cad_sap_link.py" = [{comunes}]  # copia casi literal de cad/sap2000_link.py\n'
+    )
+    t = t.replace(ancla, reglas + ancla, 1)
+    p.write_text(t, encoding="utf-8")
     log.append("editado   pyproject.toml (+ignores de copia literal)")
-
 
 NUEVOS_RUFF = [
     "bridge/cad_drwr.py",
@@ -294,6 +370,7 @@ def main():
     parchear_ruff(target, log)
     parchear_test_integrados(target, log)
     parchear_shell_test(target, log, a.autorizar_shell_test)
+    parchear_browser_check(target, log)
     ordenar_imports(target, log)
     formatear_json(target, log)
     anexar_doc(target, "docs/MODULES_SOURCE.md", "MODULES_SOURCE_cad_drwr.md", commit, log)

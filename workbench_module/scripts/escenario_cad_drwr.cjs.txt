@@ -1,0 +1,41 @@
+// --- Escenario real de CAD-DRWR ---------------------------------------------------
+async function escenarioCadDrwr(page, base) {
+  const R = 'cad_drwr'
+  rutaActual = R
+  const antes = problemas.length
+  await escenarioBasico(R)(page, base)
+  const lienzo = page.locator('svg[role="img"]').first()
+  await lienzo.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {})
+  const pie = async () => ((await page.locator('.cad-pie').first().innerText().catch(() => '')) || '').replace(/\s+/g, ' ')
+  const entidades = async () => Number(((await pie()).match(/Entidades:\s*(\d+)/) || [])[1] || 0)
+
+  check('cad_drwr (a): sin aviso de módulo no disponible', (await page.getByText('no está disponible en este servidor').count()) === 0)
+  check('cad_drwr (a): el visor SVG dibuja la placa base', (await lienzo.locator('line, path, polyline').count()) > 50, await pie())
+  check('cad_drwr (a): 273 entidades con los valores por defecto (golden del escritorio)', (await entidades()) === 273, await pie())
+
+  await page.getByRole('button', { name: 'Pedestal', exact: true }).click()
+  // Sin page.waitForFunction: evalúa código en la página y la CSP del Workbench (sin unsafe-eval) lo prohíbe.
+  for (let i = 0; i < 60 && (await entidades()) !== 279; i++) await page.waitForTimeout(250)
+  check('cad_drwr (b): al cambiar a Pedestal se redibuja (279 entidades)', (await entidades()) === 279, await pie())
+
+  await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+  const descarga = page.waitForEvent('download', { timeout: 15000 }).catch(() => null)
+  await page.getByRole('button', { name: 'DXF', exact: true }).click()
+  const d = await descarga
+  check('cad_drwr (c): exportar DXF descarga pedestal.dxf', !!d && d.suggestedFilename() === 'pedestal.dxf', d ? d.suggestedFilename() : 'sin descarga')
+
+  await page.getByRole('button', { name: 'Fundación SAP2000', exact: true }).click()
+  check('cad_drwr (d): Fundación SAP2000 pide leer la geometría (sin llamar al servidor sin geometría)',
+    (await page.getByText('Lea la geometría desde SAP2000').count()) > 0)
+
+  await page.getByRole('button', { name: 'Placa Base', exact: true }).click()
+  await page.getByRole('button', { name: 'Enviar a CAD', exact: true }).click()
+  const dialogo = page.getByRole('dialog')
+  await dialogo.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {})
+  check('cad_drwr (e): «Enviar a CAD» abre un diálogo modal accesible', (await dialogo.count()) === 1)
+  await page.keyboard.press('Escape')
+
+  const hasta = problemas.slice(antes)
+  check('cad_drwr: 0 violaciones CSP ni errores de página/consola en todo el escenario', hasta.length === 0, hasta.join(' | '))
+}
+

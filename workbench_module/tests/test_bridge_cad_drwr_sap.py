@@ -31,8 +31,12 @@ if str(RAIZ) not in sys.path:
 from bridge import cad_drwr, cad_drwr_sap  # noqa: E402
 from bridge.cad_sap_link import (
     ControlTrabajo,
-    ModelLink,  # noqa: E402
+    ModelLink,
+    # noqa: E402
     TrabajoCancelado,
+    coordenada,
+    leer_fundacion,
+    orientacion_frame,
 )
 
 PREF = "/v1/sap/actions/cad/sap"
@@ -548,3 +552,68 @@ def test_contrato_sap_coincide_con_las_claves_reales():
     listo = esperar_fin(cli, arrancar(cli))  # segundo trabajo, sin bloqueo
     assert listo["estado"] == "listo"
     assert sorted(listo) == sorted(claves_base_status() + ["resultado"])
+
+
+# ----------------------------------- código de retorno COM al inicio / al final --
+
+
+class _RetFirst:
+    """Proxy que mueve el código de retorno al inicio de toda tupla (forma pywin32).
+
+    Mismo patrón que `_RetFirst` de `tests/test_bridge_esbelteces.py` del workbench."""
+
+    def __init__(self, target):
+        self._target = target
+
+    def __getattr__(self, name):
+        attr = getattr(self._target, name)
+        if not callable(attr):
+            return _RetFirst(attr)
+
+        def call(*args, **kwargs):
+            result = attr(*args, **kwargs)
+            if isinstance(result, tuple) and result and isinstance(result[-1], int):
+                return (result[-1], *result[:-1])
+            return result
+
+        return call
+
+
+def _leer(modelo):
+    return leer_fundacion(ModelLink(modelo, ControlTrabajo()), "G_ZAP").to_dict()
+
+
+def test_lectura_con_codigo_de_retorno_al_inicio_igual_que_al_final():
+    esperado = _leer(SapModelFalso())
+    obtenido = _leer(_RetFirst(SapModelFalso()))
+    assert len(obtenido["zapatas"]) == 2
+    assert obtenido == esperado
+    pedestal = obtenido["zapatas"][0]["pedestales"][0]
+    assert (pedestal["largo"], pedestal["ancho"]) == (400.0, 400.0)
+
+
+def test_coordenada_con_codigo_al_final_y_x_cercano_a_cero():
+    """Regresión: con (x, y, z, ret) y |x| < 1 se leía (y, z, ret) como coordenada."""
+    modelo = SapModelFalso()
+    modelo.PointObj.GetCoordCartesian = lambda nombre, *a: (0.4, 5.0, 7.0, 0)
+    assert coordenada(ModelLink(modelo, ControlTrabajo()), "A") == (0.4, 5.0, 7.0)
+    modelo.PointObj.GetCoordCartesian = lambda nombre, *a: (0, 0.4, 5.0, 7.0)
+    assert coordenada(ModelLink(modelo, ControlTrabajo()), "A") == (0.4, 5.0, 7.0)
+
+
+@pytest.mark.parametrize(
+    ("retorno", "largo_en_x"),
+    [
+        ((90.0, False, 0), False),  # código al final (comtypes)
+        ((0, 90.0, False), False),  # código al inicio (pywin32)
+        ((0.0, False, 0), True),
+        ((0, 0.0, False), True),
+        ((135.0, False, 0), True),
+        ((0, 135.0, False), True),
+    ],
+)
+def test_orientacion_frame_lee_el_angulo_con_el_codigo_en_cualquier_extremo(retorno, largo_en_x):
+    """Regresión: tomar el último número leía el código de retorno (0) como ángulo."""
+    modelo = SapModelFalso()
+    modelo.FrameObj.GetLocalAxes = lambda nombre, *a: retorno
+    assert orientacion_frame(ModelLink(modelo, ControlTrabajo()), "P1") is largo_en_x

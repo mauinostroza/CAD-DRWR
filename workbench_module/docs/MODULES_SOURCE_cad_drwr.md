@@ -26,3 +26,4 @@ Código nuevo (no copiado): `serializar.py`, `servicio.py`, `volcado.py`, `gener
 - La vista previa web es SVG (no QPainter): el aplanado de cotas, llamadas y tablas usa las mismas funciones que DXF y COM (`core/annotations.py`, `core/dims.py`).
 - El puente CAD copia `cad/com_live.py` sin ezdxf: `_infer_th`/`_infer_ltscale` se reemplazan por `serializar.inferir_th`; `_tabla_prims` se elimina (las tablas llegan aplanadas).
 - `TrabajoCancelado` hereda de `BaseException` para que los `except Exception` tolerantes de `sap2000_link` no se traguen la cancelación.
+- Las lecturas COM de `cad_sap_link.py` (`coordenada`, `orientacion_frame`) usan `bridge.actions.split_return` del workbench: el código de retorno puede ir al inicio (pywin32) o al final (comtypes). El resto de parsers del original ya eran tolerantes (filtran por tipo). Pruebas con el doble `_RetFirst` en `tests/test_cad_drwr_bridge_sap.py`.
