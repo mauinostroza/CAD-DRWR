@@ -1,0 +1,107 @@
+# -*- coding: utf-8 -*-
+"""
+core.tables — Cuadros de despiece de acero y tablas de pernos.
+"""
+
+from . import ir
+import math
+from .geom import poly_bar
+from .bolt_spec import PGSpec, pg_spec_from_params, pg_table_rows
+
+COLS = ["MARCA", "FORMA", "Ø\n(mm)", "Nº", "LARGO\n(m)", "P.U.\n(kg/m)", "PESO\n(kg)", "TRAMOS EJE\n(mm)"]
+COL_W = [20, 34, 16, 14, 24, 24, 26, 85]
+
+
+def peso_barra(d_mm: float) -> float:
+    """Peso unitario teórico de barra corrugada en kg/m: d²/162."""
+    return d_mm * d_mm / 162.0
+
+
+def fila_barra(marca: str, shape_code: str, shape_pts, d: float, R_in: float,
+               qty: int, layer=ir.L_ACERO):
+    """Genera la fila del cuadro + entidades del boceto de forma.
+    Devuelve (celdas_texto, sketch_ents_relativas, largo_mm)."""
+    ents, dev = poly_bar(shape_pts, d, R_in, layer=layer)
+    pu = peso_barra(d)
+    celdas = [marca, "", f"Ø{d}", str(qty), f"{dev / 1000.0:.2f}",
+              f"{pu:.2f}", f"{pu * qty * dev / 1000.0:.2f}"]
+    legs = [f"{chr(65+i)}={math.dist(a,b):.1f}" for i, (a,b)
+            in enumerate(zip(shape_pts, shape_pts[1:]))]
+    details = [f"{shape_code}; R interior={R_in:g}"]
+    details.extend("; ".join(legs[i:i+3]) for i in range(0, len(legs), 3))
+    celdas.append("\n".join(details))
+    # normaliza boceto alrededor de su centro, con origen (0,0)
+    xs = [p[0] for e in ents for p in _pts_of(e)]
+    ys = [p[1] for e in ents for p in _pts_of(e)]
+    if xs:
+        cx, cy = (min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0
+        sketch = _translate_ents(ents, -cx, -cy)
+    else:
+        sketch = []
+    return celdas, sketch, dev
+
+
+def _pts_of(e):
+    if hasattr(e, "p1"):
+        return [e.p1, e.p2]
+    if hasattr(e, "pts"):
+        return e.pts
+    if hasattr(e, "c"):
+        return [e.c]
+    return []
+
+
+def _translate_ents(ents, dx, dy):
+    out = []
+    for e in ents:
+        import copy
+        e2 = copy.copy(e)
+        if hasattr(e, "p1"):
+            e2.p1 = (e.p1[0] + dx, e.p1[1] + dy)
+            e2.p2 = (e.p2[0] + dx, e.p2[1] + dy)
+        elif hasattr(e, "pts"):
+            e2.pts = [(p[0] + dx, p[1] + dy) for p in e.pts]
+        elif hasattr(e, "c"):
+            e2.c = (e.c[0] + dx, e.c[1] + dy)
+        out.append(e2)
+    return out
+
+
+def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
+                    title="CUADRO DE DESPIECE DE BARRAS") -> ir.Table:
+    """filas: lista de (celdas, sketch) ya calculadas."""
+    col_w = [w * f for w in COL_W]
+    rows = []
+    sketches = {}
+    for i, fila in enumerate(filas):
+        celdas, sketch = fila
+        rows.append(celdas)
+        if sketch:
+            sketches[(i, 1)] = sketch
+    line_count = max((len(str(cell).splitlines()) for row in rows for cell in row), default=1)
+    t = ir.Table(pos=pos, col_w=col_w, row_h=max(15.0, (line_count+1)*6.25) * f, header=COLS,
+                 rows=rows, title=title, h_row=5.0 * f, sketches=sketches)
+    if total_kg is not None:
+        total_row = [""] * len(COLS)
+        total_row[6] = f"Σ {total_kg:.1f}"
+        rows.append(total_row)
+    return t
+
+
+def tabla_pernos(pos, f: float, datos, title="CUADRO DE PERNOS DE ANCLAJE"):
+    """datos: lista de listas de texto. Encabezados fijos."""
+    headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY. PLACA\n(mm)", "MATERIAL",
+               "TUERCA /\nARANDELA"]
+    col_w = [w * f for w in [20, 24, 34, 30, 38, 56]]
+    return ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=headers,
+                    rows=datos, title=title, h_row=5.0 * f)
+
+
+def tabla_perno_pg(pos, f: float, p: dict) -> ir.Table:
+    """Tabla de fabricación vertical para el perno recto tipo PG."""
+    spec = p if isinstance(p, PGSpec) else pg_spec_from_params(p)
+    rows = pg_table_rows(spec)
+    return ir.Table(pos=pos, col_w=[58 * f, 13 * f, 22 * f],
+                    row_h=10.0 * f, rows=rows, title='PERNO TIPO "PG"',
+                    h_row=3.0 * f, title_boxed=True,
+                    col_align=["l", "c", "c"])
