@@ -42,6 +42,7 @@ requirements.txt) y SAP2000 abierto con el modelo cargado.
 import threading
 from typing import Dict, List, Optional, Tuple
 
+from bridge.actions import split_return
 from backend.motor_calculo.cad_drwr.core.geom import (
     agrupar_por_adyacencia,
     contorno_exterior,
@@ -383,10 +384,11 @@ def coordenada(link: SapLink, nodo: str) -> Tuple[float, float, float]:
     activas del modelo (mm si se llamó `set_units_mm` antes)."""
     model = link.get_sap_model()
     try:
-        ret = model.PointObj.GetCoordCartesian(str(nodo))
-        if isinstance(ret, (list, tuple)) and len(ret) >= 4:
-            if int(ret[0]) == 0:
-                return (float(ret[1]), float(ret[2]), float(ret[3]))
+        # El código de retorno va al inicio (pywin32) o al final (comtypes): split_return lo ubica.
+        codigo, salidas = split_return(model.PointObj.GetCoordCartesian(str(nodo)))
+        numeros = [float(v) for v in salidas if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if codigo == 0 and len(numeros) >= 3:
+            return (numeros[0], numeros[1], numeros[2])
     except Exception:
         pass
     try:
@@ -596,14 +598,11 @@ def orientacion_frame(link: SapLink, frame: str) -> bool:
     True por defecto (el usuario puede corregirlo en la vista previa)."""
     try:
         model = link.get_sap_model()
-        ret = model.FrameObj.GetLocalAxes(frame)
-        angulos = (
-            [v for v in ret if isinstance(v, (int, float)) and not isinstance(v, bool)]
-            if isinstance(ret, (list, tuple))
-            else []
-        )
-        if angulos:
-            angulo = float(angulos[-1]) % 180.0
+        # Salidas: (ang, advanced) con el código de retorno al inicio o al final.
+        codigo, salidas = split_return(model.FrameObj.GetLocalAxes(frame))
+        angulos = [v for v in salidas if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if codigo == 0 and angulos:
+            angulo = float(angulos[0]) % 180.0
             return angulo < 45.0 or angulo >= 135.0
     except Exception:
         pass

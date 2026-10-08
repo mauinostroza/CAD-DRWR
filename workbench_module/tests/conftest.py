@@ -20,3 +20,12 @@ if "backend.auth" not in sys.modules:
 
         mod.require_user = require_user
         sys.modules["backend.auth"] = mod
+
+
+# `bridge.actions` es del workbench: el arnés usa un sustituto con `split_return`.
+try:
+    import bridge.actions  # noqa: F401
+except ImportError:
+    import _stub_bridge_actions
+
+    sys.modules["bridge.actions"] = _stub_bridge_actions
