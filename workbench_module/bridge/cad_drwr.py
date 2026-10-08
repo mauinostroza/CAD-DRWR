@@ -353,6 +353,7 @@ class ServicioCad:
         self.actor = CadActor()
         self._lock = threading.Lock()
         self._sesion = None
+        self._pick_cancel = None
 
     def _ejecutar(self, fn, timeout: float):
         try:
@@ -399,14 +400,32 @@ class ServicioCad:
 
         return self._ejecutar(fn, TIMEOUT_STATUS_S)
 
+    def cancelar_pick(self) -> dict:
+        """Pide al hilo COM que abandone el clic pendiente (y envía Esc al CAD)."""
+        ev = self._pick_cancel
+        if ev is not None:
+            ev.set()
+        return {"cancelado": ev is not None}
+
     def pick(self, mensaje: str | None, timeout_s: int) -> dict:
+        ev = threading.Event()
+        self._pick_cancel = ev
+
         def fn():
-            x, y = cc.pedir_punto(mensaje) if mensaje else cc.pedir_punto()
+            if ev.is_set():
+                raise RuntimeError("Selección de punto cancelada.")
+            kw = {"cancelar": ev}
+            x, y = cc.pedir_punto(mensaje, **kw) if mensaje else cc.pedir_punto(**kw)
             if not (math.isfinite(x) and math.isfinite(y)):
                 raise RuntimeError("El CAD devolvió coordenadas no válidas.")
             return {"x": float(x), "y": float(y)}
 
-        return self._ejecutar(fn, float(timeout_s))
+        try:
+            return self._ejecutar(fn, float(timeout_s))
+        finally:
+            ev.set()  # libera el hilo COM si venció el plazo; si ya acabó no hace nada
+            if self._pick_cancel is ev:
+                self._pick_cancel = None
 
     def begin(self, origen, n_total: int, th: float) -> dict:
         def fn():
@@ -527,6 +546,10 @@ def install_routes(app, call=None):
     @router.post(PREFIJO + "/pick")
     def cad_pick(body: PickIn):
         return servicio.pick(body.mensaje, body.timeout_s)
+
+    @router.post(PREFIJO + "/pick/cancel")
+    def cad_pick_cancel():
+        return servicio.cancelar_pick()
 
     @router.post(PREFIJO + "/draw/begin")
     def cad_draw_begin(body: BeginIn):

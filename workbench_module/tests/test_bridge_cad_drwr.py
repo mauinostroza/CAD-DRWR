@@ -412,11 +412,29 @@ def test_pick_timeout_409_y_el_actor_se_recupera(cliente):
     r = post(cli, "/pick", {"timeout_s": 5})
     assert r.status_code == 409
     assert "no respondió en 5 s" in r.json()["detail"]
-    # Simula que el usuario pulsa Esc en el CAD: el comando termina y el
-    # actor queda libre. Una llamada posterior debe responder.
-    m.doc.vars["USERR3"] = 0.0
+    # Vencido el plazo, el hilo COM abandona el clic solo (y envía Esc al CAD):
+    # una llamada posterior debe responder sin intervención del usuario.
     r2 = post(cli, "/status", {})
     assert r2.status_code == 200 and r2.json()["conectado"] is True
+    assert any(c[1] == "SendCommand" and c[2] == ("\x03\x03",) for c in m.llamadas)
+
+
+def test_pick_cancel_libera_el_clic_pendiente(cliente):
+    import threading
+    import time
+
+    cli, m = cliente
+    m.conectar_zwcad()
+    m.modo_pick = "silencio"
+    res = {}
+    hilo = threading.Thread(target=lambda: res.update(r=post(cli, "/pick", {"timeout_s": 60})))
+    hilo.start()
+    time.sleep(1.0)
+    rc = post(cli, "/pick/cancel", {})
+    assert rc.status_code == 200 and rc.json() == {"cancelado": True}
+    hilo.join(10)
+    assert not hilo.is_alive()
+    assert res["r"].status_code == 409 and "cancelada" in res["r"].json()["detail"]
 
 
 def test_pick_rechaza_timeout_fuera_de_rango(cliente):
