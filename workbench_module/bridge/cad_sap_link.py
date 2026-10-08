@@ -42,10 +42,17 @@ requirements.txt) y SAP2000 abierto con el modelo cargado.
 import threading
 from typing import Dict, List, Optional, Tuple
 
-from backend.motor_calculo.cad_drwr.core.geom import agrupar_por_adyacencia, \
-    contorno_exterior, simplificar_colineales
+from backend.motor_calculo.cad_drwr.core.geom import (
+    agrupar_por_adyacencia,
+    contorno_exterior,
+    simplificar_colineales,
+)
 from backend.motor_calculo.cad_drwr.sap_geom import (  # reexport
-    AreaGeom, FundacionGeom, Pedestal, Zapata)
+    AreaGeom,
+    FundacionGeom,
+    Pedestal,
+    Zapata,
+)
 
 PROG_IDS = [
     "CSI.SAP2000.API.SapObject",
@@ -76,18 +83,18 @@ _DIMENSION_PLACEHOLDER_MM = 300.0
 def _win32():
     """Importa win32com (solo Windows). Lanza RuntimeError con mensaje claro."""
     import os
+
     if os.name != "nt":
-        raise RuntimeError(
-            "La conexión con SAP2000 solo está disponible en Windows.")
+        raise RuntimeError("La conexión con SAP2000 solo está disponible en Windows.")
     try:
         import win32com.client
         import win32com.client.dynamic
+
         return win32com.client
     except ImportError:
         raise RuntimeError(
-            "pywin32 no está instalado. Ejecute:\n"
-            "    pip install pywin32\n"
-            "y vuelva a intentar la conexión.")
+            "pywin32 no está instalado. Ejecute:\n    pip install pywin32\ny vuelva a intentar la conexión."
+        )
 
 
 def _dispatch_tardio(win32com_client, prog_id: str):
@@ -142,15 +149,13 @@ class SapLink:
             try:
                 helper = _dispatch_tardio(win32com_client, helper_id)
             except Exception as e:
-                errores.append(f"Dispatch(Helper {helper_id}): "
-                               f"{_clean_com_error(e)}")
+                errores.append(f"Dispatch(Helper {helper_id}): {_clean_com_error(e)}")
                 continue
             for sap_obj_id in PROG_IDS:
                 try:
                     sap_object = helper.GetObject(sap_obj_id)
                 except Exception as e:
-                    errores.append(f"Helper({helper_id}).GetObject"
-                                   f"({sap_obj_id}): {_clean_com_error(e)}")
+                    errores.append(f"Helper({helper_id}).GetObject({sap_obj_id}): {_clean_com_error(e)}")
                     continue
                 model = getattr(sap_object, "SapModel", None)
                 if model is None:
@@ -163,16 +168,13 @@ class SapLink:
         # Intento 2: GetActiveObject (Running Object Table).
         for prog_id in PROG_IDS:
             try:
-                sap_object = win32com_client.GetActiveObject(
-                    prog_id, dynamic=True)
+                sap_object = win32com_client.GetActiveObject(prog_id, dynamic=True)
             except Exception as e:
-                errores.append(f"GetActiveObject({prog_id}): "
-                               f"{_clean_com_error(e)}")
+                errores.append(f"GetActiveObject({prog_id}): {_clean_com_error(e)}")
                 continue
             model = getattr(sap_object, "SapModel", None)
             if model is None:
-                errores.append(f"GetActiveObject({prog_id}): "
-                               "objeto sin SapModel")
+                errores.append(f"GetActiveObject({prog_id}): objeto sin SapModel")
                 continue
             self._sap_object = sap_object
             self._sap_model = model
@@ -185,7 +187,8 @@ class SapLink:
             "Verifique que SAP2000 esté abierto con el modelo cargado y "
             "que 'Allow API Application Access' esté activo "
             "(File > Preferences > API).\n\n"
-            "Detalle de los intentos:\n  - " + "\n  - ".join(errores))
+            "Detalle de los intentos:\n  - " + "\n  - ".join(errores)
+        )
 
     def _info_modelo(self) -> str:
         nombre = "Modelo sin guardar"
@@ -195,6 +198,7 @@ class SapLink:
                 ruta = ruta[0] if ruta else ""
             if ruta:
                 import os
+
                 nombre = os.path.basename(str(ruta))
         except Exception:
             pass
@@ -211,8 +215,7 @@ class SapLink:
         try:
             model.SetPresentUnits(UNIDADES_N_MM_C)
         except Exception as e:
-            raise RuntimeError(f"No se pudo fijar unidades mm en SAP2000: "
-                               f"{_clean_com_error(e)}")
+            raise RuntimeError(f"No se pudo fijar unidades mm en SAP2000: {_clean_com_error(e)}")
         return original if isinstance(original, int) else 0
 
     def restore_units(self, original: int) -> None:
@@ -245,8 +248,7 @@ class ControlTrabajo:
         """Cuenta una operación COM; lanza TrabajoCancelado si se pidió cancelar."""
         with self._lock:
             if self.cancelado:
-                raise TrabajoCancelado(
-                    "Lectura de SAP2000 cancelada por el usuario.")
+                raise TrabajoCancelado("Lectura de SAP2000 cancelada por el usuario.")
             self.hechas += 1
 
     def cancelar(self) -> None:
@@ -283,8 +285,7 @@ class ModelLink:
         try:
             model.SetPresentUnits(UNIDADES_N_MM_C)
         except Exception as e:
-            raise RuntimeError(f"No se pudo fijar unidades mm en SAP2000: "
-                               f"{_clean_com_error(e)}")
+            raise RuntimeError(f"No se pudo fijar unidades mm en SAP2000: {_clean_com_error(e)}")
         return original if isinstance(original, int) else 0
 
     def restore_units(self, original: int) -> None:
@@ -300,11 +301,11 @@ class ModelLink:
 
 # ---------------------------------------------------- parseo tolerante --
 
+
 def _parse_name_list(ret) -> List[str]:
     """Normaliza GetNameList/variantes COM a lista de strings, tolerando
     firmas (ret, count, names) / (count, names) / lista de strings."""
-    if isinstance(ret, (list, tuple)) and ret and all(
-            isinstance(x, str) for x in ret):
+    if isinstance(ret, (list, tuple)) and ret and all(isinstance(x, str) for x in ret):
         return [str(x) for x in ret]
     if not isinstance(ret, (list, tuple)):
         return []
@@ -334,8 +335,7 @@ def listar_grupos(link: SapLink) -> List[str]:
     try:
         ret = model.GroupDef.GetNameList()
     except Exception as e:
-        raise RuntimeError(f"No se pudo listar los grupos de SAP2000: "
-                           f"{_clean_com_error(e)}")
+        raise RuntimeError(f"No se pudo listar los grupos de SAP2000: {_clean_com_error(e)}")
     return _parse_name_list(ret)
 
 
@@ -351,9 +351,12 @@ def _parsear_get_assignments(ret) -> Tuple[list, list]:
         return [], []
     for i in range(len(ret) - 1):
         tipos, nombres = ret[i], ret[i + 1]
-        if (isinstance(tipos, (list, tuple))
-                and isinstance(nombres, (list, tuple))
-                and len(tipos) == len(nombres) and len(tipos) > 0):
+        if (
+            isinstance(tipos, (list, tuple))
+            and isinstance(nombres, (list, tuple))
+            and len(tipos) == len(nombres)
+            and len(tipos) > 0
+        ):
             try:
                 return [int(t) for t in tipos], [str(n) for n in nombres]
             except Exception:
@@ -367,8 +370,7 @@ def miembros_de_grupo(link: SapLink, grupo: str) -> Dict[str, List[str]]:
     try:
         ret = _llamar_get_assignments(model, grupo)
     except Exception as e:
-        raise RuntimeError(f"No se pudieron leer los miembros del grupo "
-                           f"'{grupo}': {_clean_com_error(e)}")
+        raise RuntimeError(f"No se pudieron leer los miembros del grupo '{grupo}': {_clean_com_error(e)}")
     tipos, nombres = _parsear_get_assignments(ret)
     return {
         "nodos": [nombres[i] for i in range(len(nombres)) if tipos[i] == 1],
@@ -390,6 +392,7 @@ def coordenada(link: SapLink, nodo: str) -> Tuple[float, float, float]:
     try:
         import pythoncom
         import win32com.client
+
         x = win32com.client.VARIANT(pythoncom.VT_R8, 0.0)
         y = win32com.client.VARIANT(pythoncom.VT_R8, 0.0)
         z = win32com.client.VARIANT(pythoncom.VT_R8, 0.0)
@@ -414,8 +417,7 @@ def puntos_de_area(link: SapLink, area: str) -> List[str]:
     try:
         raw = model.AreaObj.GetPoints(area)
     except Exception as e:
-        raise RuntimeError(f"No se pudieron leer los puntos del área "
-                           f"'{area}': {_clean_com_error(e)}")
+        raise RuntimeError(f"No se pudieron leer los puntos del área '{area}': {_clean_com_error(e)}")
     arrays = _arrays_de_respuesta(raw)
     for arr in arrays:
         if arr and all(isinstance(x, str) for x in arr):
@@ -433,16 +435,14 @@ def seccion_de_area(link: SapLink, area: str) -> str:
     try:
         ret = model.AreaObj.GetProperty(area)
     except Exception as e:
-        raise RuntimeError(f"No se pudo leer la sección del área "
-                           f"'{area}': {_clean_com_error(e)}")
+        raise RuntimeError(f"No se pudo leer la sección del área '{area}': {_clean_com_error(e)}")
     if isinstance(ret, (list, tuple)):
         nombres = [x for x in ret if isinstance(x, str) and x]
         if nombres:
             return nombres[0]
     if isinstance(ret, str) and ret:
         return ret
-    raise RuntimeError(f"No se pudo interpretar AreaObj.GetProperty"
-                       f"({area!r}).")
+    raise RuntimeError(f"No se pudo interpretar AreaObj.GetProperty({area!r}).")
 
 
 def elementos_de_area(link: SapLink, area: str) -> List[str]:
@@ -521,7 +521,7 @@ def espesor_de_seccion(link: SapLink, nombre_seccion: str) -> Optional[float]:
                 fv = float(v)
             except (TypeError, ValueError):
                 continue
-            if 0.5 <= fv <= 5000.0:      # rango plausible de espesor en mm
+            if 0.5 <= fv <= 5000.0:  # rango plausible de espesor en mm
                 candidatos.append(fv)
         if candidatos:
             break
@@ -534,6 +534,7 @@ def espesor_de_seccion(link: SapLink, nombre_seccion: str) -> Optional[float]:
 # Puerto de app/sap2000/pedestales_automaticos.py (Foundations SAP2000):
 # frames verticales cuyo pie coincide con un joint que es esquina de algún
 # shell del grupo, con su dimensión real leída de PropFrame.
+
 
 def nombres_de_frames(link: SapLink) -> List[str]:
     model = link.get_sap_model()
@@ -569,29 +570,24 @@ def seccion_de_frame(link: SapLink, frame: str) -> str:
     raise RuntimeError(f"No se pudo interpretar FrameObj.GetSection({frame!r}).")
 
 
-def dimensiones_rectangulo_frame(link: SapLink,
-                                 seccion: str) -> Tuple[float, float]:
+def dimensiones_rectangulo_frame(link: SapLink, seccion: str) -> Tuple[float, float]:
     model = link.get_sap_model()
     ret = model.PropFrame.GetRectangle(seccion)
     # T3/T2 llegan como `float`; el código de retorno y `Color` son `int`
     # — filtrar por float aísla las dimensiones reales.
-    dims = [v for v in ret if isinstance(v, float)] if isinstance(
-        ret, (list, tuple)) else []
+    dims = [v for v in ret if isinstance(v, float)] if isinstance(ret, (list, tuple)) else []
     if len(dims) >= 2 and dims[0] > 0 and dims[1] > 0:
         return float(dims[0]), float(dims[1])
-    raise RuntimeError(f"PropFrame.GetRectangle({seccion!r}) no devolvió "
-                       "dimensiones válidas.")
+    raise RuntimeError(f"PropFrame.GetRectangle({seccion!r}) no devolvió dimensiones válidas.")
 
 
 def dimensiones_circulo_frame(link: SapLink, seccion: str) -> Tuple[float, float]:
     model = link.get_sap_model()
     ret = model.PropFrame.GetCircle(seccion)
-    dims = [v for v in ret if isinstance(v, float)] if isinstance(
-        ret, (list, tuple)) else []
+    dims = [v for v in ret if isinstance(v, float)] if isinstance(ret, (list, tuple)) else []
     if dims and dims[0] > 0:
         return float(dims[0]), float(dims[0])
-    raise RuntimeError(f"PropFrame.GetCircle({seccion!r}) no devolvió un "
-                       "diámetro válido.")
+    raise RuntimeError(f"PropFrame.GetCircle({seccion!r}) no devolvió un diámetro válido.")
 
 
 def orientacion_frame(link: SapLink, frame: str) -> bool:
@@ -601,9 +597,11 @@ def orientacion_frame(link: SapLink, frame: str) -> bool:
     try:
         model = link.get_sap_model()
         ret = model.FrameObj.GetLocalAxes(frame)
-        angulos = [v for v in ret if isinstance(v, (int, float))
-                  and not isinstance(v, bool)] if isinstance(
-            ret, (list, tuple)) else []
+        angulos = (
+            [v for v in ret if isinstance(v, (int, float)) and not isinstance(v, bool)]
+            if isinstance(ret, (list, tuple))
+            else []
+        )
         if angulos:
             angulo = float(angulos[-1]) % 180.0
             return angulo < 45.0 or angulo >= 135.0
@@ -612,9 +610,7 @@ def orientacion_frame(link: SapLink, frame: str) -> bool:
     return True
 
 
-def detectar_pedestales(link: SapLink,
-                        coords: Dict[str, Tuple[float, float, float]]
-                        ) -> List[Pedestal]:
+def detectar_pedestales(link: SapLink, coords: Dict[str, Tuple[float, float, float]]) -> List[Pedestal]:
     """Recorre todos los frames del modelo y devuelve los candidatos a
     pedestal: frames verticales cuyo extremo inferior coincide con un
     joint de `coords` (típicamente las esquinas de los shells de un
@@ -628,9 +624,11 @@ def detectar_pedestales(link: SapLink,
         except Exception:
             continue
 
-        vertical = (abs(xi - xj) < _EPS_VERTICAL_MM
-                   and abs(yi - yj) < _EPS_VERTICAL_MM
-                   and abs(zi - zj) > _EPS_VERTICAL_MM)
+        vertical = (
+            abs(xi - xj) < _EPS_VERTICAL_MM
+            and abs(yi - yj) < _EPS_VERTICAL_MM
+            and abs(zi - zj) > _EPS_VERTICAL_MM
+        )
         if not vertical:
             continue
 
@@ -659,14 +657,21 @@ def detectar_pedestales(link: SapLink,
             except Exception:
                 largo = ancho = _DIMENSION_PLACEHOLDER_MM
                 aproximado = True
-                motivo_aviso = ("Sección no reconocida, dimensión de "
-                                "relleno — revisar manualmente")
+                motivo_aviso = "Sección no reconocida, dimensión de relleno — revisar manualmente"
 
         largo_en_x = orientacion_frame(link, frame)
-        candidatos.append(Pedestal(
-            frame=frame, largo=largo, ancho=ancho, largo_en_x=largo_en_x,
-            centro=(x_pie, y_pie), punto_pie=punto_pie,
-            aproximado=aproximado, motivo_aviso=motivo_aviso))
+        candidatos.append(
+            Pedestal(
+                frame=frame,
+                largo=largo,
+                ancho=ancho,
+                largo_en_x=largo_en_x,
+                centro=(x_pie, y_pie),
+                punto_pie=punto_pie,
+                aproximado=aproximado,
+                motivo_aviso=motivo_aviso,
+            )
+        )
     return candidatos
 
 
@@ -711,8 +716,7 @@ def leer_fundacion(link: SapLink, grupo: str) -> FundacionGeom:
             if not pts_malla:
                 pts_malla = list(nombres_pts)
 
-            areas.append(AreaGeom(area, seccion, espesor, nombres_pts, pts,
-                                  pts_malla))
+            areas.append(AreaGeom(area, seccion, espesor, nombres_pts, pts, pts_malla))
 
         if not areas:
             raise RuntimeError(f"El grupo '{grupo}' no tiene shells asignados.")
@@ -723,20 +727,19 @@ def leer_fundacion(link: SapLink, grupo: str) -> FundacionGeom:
         zapatas: List[Zapata] = []
         for k, idxs in enumerate(componentes):
             areas_comp = [areas[i] for i in idxs]
-            nombres_contorno = contorno_exterior(
-                [a.pts_nombres for a in areas_comp])
+            nombres_contorno = contorno_exterior([a.pts_nombres for a in areas_comp])
             contorno_xy = [coords[n][:2] for n in nombres_contorno]
             contorno_xy = simplificar_colineales(contorno_xy)
 
             joints_malla_comp = {n for a in areas_comp for n in a.pts_malla}
-            pedestales_comp = [p for p in pedestales
-                               if p.punto_pie in joints_malla_comp]
+            pedestales_comp = [p for p in pedestales if p.punto_pie in joints_malla_comp]
 
-            nombre_zapata = (pedestales_comp[0].frame
-                            if len(pedestales_comp) == 1 else f"F{k + 1}")
-            zapatas.append(Zapata(nombre=nombre_zapata, areas=areas_comp,
-                                  contorno=contorno_xy,
-                                  pedestales=pedestales_comp))
+            nombre_zapata = pedestales_comp[0].frame if len(pedestales_comp) == 1 else f"F{k + 1}"
+            zapatas.append(
+                Zapata(
+                    nombre=nombre_zapata, areas=areas_comp, contorno=contorno_xy, pedestales=pedestales_comp
+                )
+            )
     finally:
         link.restore_units(original_units)
 

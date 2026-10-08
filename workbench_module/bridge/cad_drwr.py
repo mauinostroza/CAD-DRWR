@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 bridge.cad_drwr — Rutas del puente local hacia ZWCAD / AutoCAD (CAD-DRWR).
 
@@ -28,35 +27,34 @@ import time
 import uuid
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as _FuturoTimeout
-from typing import Annotated, Literal, Optional, Union
-
-from fastapi import APIRouter, HTTPException
-from fastapi.routing import APIRoute
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Annotated, Literal
 
 from backend.motor_calculo.cad_drwr.core import ir
 from bridge import cad_com_live as cc
+from fastapi import APIRouter, HTTPException
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 PREFIJO = "/v1/sap/actions/cad"
 
-TTL_SESION_S = 600.0           # una sesión de dibujo vence tras 10 min sin uso
+TTL_SESION_S = 600.0  # una sesión de dibujo vence tras 10 min sin uso
 TIMEOUT_STATUS_S = 15.0
 TIMEOUT_BEGIN_S = 60.0
 TIMEOUT_BATCH_S = 120.0
 TIMEOUT_END_S = 120.0
-MAX_TOTAL = 20000              # n_total máximo de una sesión
-MAX_LOTE = 1000                # entidades por lote
-MAX_PUNTOS = 2000              # puntos por poly / filled
+MAX_TOTAL = 20000  # n_total máximo de una sesión
+MAX_LOTE = 1000  # entidades por lote
+MAX_PUNTOS = 2000  # puntos por poly / filled
 MAX_TEXTO = 500
 MAX_NOMBRE = 128
 MAX_MENSAJE = 200
-MAX_ERRORES = 50               # errores listados por lote
+MAX_ERRORES = 50  # errores listados por lote
 COORD_MAX = 1e9
 
 _CFG = ConfigDict(extra="forbid", allow_inf_nan=False)
-_NOMBRE_PROGRAMA = dict(cc.PROGIDS)   # ProgID -> nombre legible
+_NOMBRE_PROGRAMA = dict(cc.PROGIDS)  # ProgID -> nombre legible
 
 Coord = Annotated[float, Field(ge=-COORD_MAX, le=COORD_MAX)]
 Punto = tuple[Coord, Coord]
@@ -68,20 +66,21 @@ Capa = Annotated[str, Field(min_length=1, max_length=MAX_NOMBRE)]
 
 # ----------------------------------------------------------- modelos --
 
+
 class StatusIn(BaseModel):
     model_config = _CFG
 
 
 class PickIn(BaseModel):
     model_config = _CFG
-    mensaje: Optional[str] = Field(default=None, max_length=MAX_MENSAJE)
+    mensaje: str | None = Field(default=None, max_length=MAX_MENSAJE)
     timeout_s: int = Field(default=120, ge=5, le=300)
 
 
 class BeginIn(BaseModel):
     model_config = _CFG
     confirmed: bool
-    origen: Optional[Punto] = None
+    origen: Punto | None = None
     n_total: int = Field(ge=0, le=MAX_TOTAL)
     th: Altura
 
@@ -100,6 +99,7 @@ class EndIn(BaseModel):
 
 class _Ent(BaseModel):
     """Base de entidades: capa obligatoria y sólo capas conocidas."""
+
     model_config = _CFG
     l: Capa
 
@@ -162,12 +162,12 @@ class EntCota(_Ent):
     b: Punto
     base: Punto
     v: bool = False
-    txt: Annotated[Optional[str], Field(max_length=MAX_TEXTO)] = None
+    txt: Annotated[str | None, Field(max_length=MAX_TEXTO)] = None
     th: Grosor = 0.0
 
 
 Entidad = Annotated[
-    Union[EntLinea, EntCirculo, EntArco, EntPoli, EntRelleno, EntTexto, EntCota],
+    EntLinea | EntCirculo | EntArco | EntPoli | EntRelleno | EntTexto | EntCota,
     Field(discriminator="t"),
 ]
 
@@ -227,8 +227,7 @@ def _mensaje_es(err: dict) -> str:
         return str(ctx.get("error", err.get("msg", "Valor no válido")))
     plantilla = _MENSAJES.get(tipo)
     if plantilla is None:
-        plantilla = ("Tipo de dato no válido"
-                     if tipo.endswith(("_type", "_parsing")) else "Valor no válido")
+        plantilla = "Tipo de dato no válido" if tipo.endswith(("_type", "_parsing")) else "Valor no válido"
     return plantilla.format_map(_Faltan(ctx))
 
 
@@ -243,18 +242,21 @@ class _RutaCad(APIRoute):
             try:
                 return await original(request)
             except RequestValidationError as exc:
-                detalle = [{"loc": list(e.get("loc", ())), "msg": _mensaje_es(e),
-                            "type": e.get("type", "")} for e in exc.errors()]
+                detalle = [
+                    {"loc": list(e.get("loc", ())), "msg": _mensaje_es(e), "type": e.get("type", "")}
+                    for e in exc.errors()
+                ]
                 return JSONResponse(status_code=422, content={"detail": detalle})
+
         return manejador
 
 
 def _error_422(loc, msg: str, tipo: str = "value_error") -> HTTPException:
-    return HTTPException(status_code=422,
-                         detail=[{"loc": list(loc), "msg": msg, "type": tipo}])
+    return HTTPException(status_code=422, detail=[{"loc": list(loc), "msg": msg, "type": tipo}])
 
 
 # ----------------------------------------------------- actor COM propio --
+
 
 class CadActor:
     """Hilo daemon único que ejecuta todas las llamadas COM al CAD."""
@@ -267,6 +269,7 @@ class CadActor:
     def _bucle(self):
         try:
             import pythoncom  # perezoso: sólo existe en Windows
+
             pythoncom.CoInitializeEx(pythoncom.COINIT_APARTMENTTHREADED)
         except Exception:
             # Fuera de Windows (o sin pywin32) el hilo sigue vivo; las
@@ -290,7 +293,8 @@ class CadActor:
                 raise
             raise TimeoutError(
                 f"El CAD no respondió en {timeout:g} s. Si hay un comando de "
-                "selección abierto en el CAD, pulse Esc y reintente.") from None
+                "selección abierto en el CAD, pulse Esc y reintente."
+            ) from None
 
 
 def _leer(fn):
@@ -341,6 +345,7 @@ def _emitir(doc, ents, tipos):
 
 # ------------------------------------------------------------ servicio --
 
+
 class ServicioCad:
     """Estado del puente: actor COM y la sesión de dibujo activa (una sola)."""
 
@@ -371,23 +376,36 @@ class ServicioCad:
             try:
                 app, pid = cc.detectar()
             except RuntimeError as exc:
-                return {"conectado": False, "programa": None, "version": None,
-                        "documento": None, "detalle": str(exc)}
+                return {
+                    "conectado": False,
+                    "programa": None,
+                    "version": None,
+                    "documento": None,
+                    "detalle": str(exc),
+                }
             programa = _NOMBRE_PROGRAMA.get(pid, pid)
             version = _leer(lambda: app.Version)
             documento = _leer(lambda: app.ActiveDocument.Name)
-            detalle = (f"{programa} | versión {version or '(desconocida)'} | "
-                       f"documento: {documento or '(ninguno)'}")
-            return {"conectado": True, "programa": programa, "version": version,
-                    "documento": documento, "detalle": detalle}
+            detalle = (
+                f"{programa} | versión {version or '(desconocida)'} | documento: {documento or '(ninguno)'}"
+            )
+            return {
+                "conectado": True,
+                "programa": programa,
+                "version": version,
+                "documento": documento,
+                "detalle": detalle,
+            }
+
         return self._ejecutar(fn, TIMEOUT_STATUS_S)
 
-    def pick(self, mensaje: Optional[str], timeout_s: int) -> dict:
+    def pick(self, mensaje: str | None, timeout_s: int) -> dict:
         def fn():
             x, y = cc.pedir_punto(mensaje) if mensaje else cc.pedir_punto()
             if not (math.isfinite(x) and math.isfinite(y)):
                 raise RuntimeError("El CAD devolvió coordenadas no válidas.")
             return {"x": float(x), "y": float(y)}
+
         return self._ejecutar(fn, float(timeout_s))
 
     def begin(self, origen, n_total: int, th: float) -> dict:
@@ -396,21 +414,29 @@ class ServicioCad:
             doc = cc._documento(app)
             cc._capas(doc)
             cc._vars_cota(doc, ir.Drawing(ents=[ir.Text((0.0, 0.0), "", th)]))
-            return {"app": app, "doc": doc,
-                    "programa": _NOMBRE_PROGRAMA.get(pid, pid),
-                    "documento": _nombre_doc(doc)}
+            return {
+                "app": app,
+                "doc": doc,
+                "programa": _NOMBRE_PROGRAMA.get(pid, pid),
+                "documento": _nombre_doc(doc),
+            }
+
         with self._lock:
             res = self._ejecutar(fn, TIMEOUT_BEGIN_S)
             sid = uuid.uuid4().hex
             self._sesion = {
-                "id": sid, "app": res["app"], "doc": res["doc"],
+                "id": sid,
+                "app": res["app"],
+                "doc": res["doc"],
                 "programa": res["programa"],
                 "origen": tuple(origen) if origen is not None else (0.0, 0.0),
-                "n_total": n_total, "recibidas": 0,
-                "creadas": 0, "omitidas": 0, "ultimo": time.monotonic(),
+                "n_total": n_total,
+                "recibidas": 0,
+                "creadas": 0,
+                "omitidas": 0,
+                "ultimo": time.monotonic(),
             }
-        return {"sesion": sid, "programa": res["programa"],
-                "documento": res["documento"]}
+        return {"sesion": sid, "programa": res["programa"], "documento": res["documento"]}
 
     def batch(self, sesion_id: str, pares) -> dict:
         """`pares` = [(tipo_wire, entidad_ir), ...] ya validadas por Pydantic."""
@@ -420,29 +446,27 @@ class ServicioCad:
             if len(pares) > restan:
                 raise _error_422(
                     ("body", "ents"),
-                    f"El lote supera el total declarado (n_total={s['n_total']}); "
-                    f"quedan {restan} entidades")
+                    f"El lote supera el total declarado (n_total={s['n_total']}); quedan {restan} entidades",
+                )
             tipos = [t for t, _ in pares]
-            dwg = ir.translate(ir.Drawing(ents=[e for _, e in pares]),
-                               s["origen"][0], s["origen"][1])
+            dwg = ir.translate(ir.Drawing(ents=[e for _, e in pares]), s["origen"][0], s["origen"][1])
             doc = s["doc"]
             try:
-                creadas, fallos = self.actor.call(
-                    lambda: _emitir(doc, dwg.ents, tipos), TIMEOUT_BATCH_S)
-            except TimeoutError:
+                creadas, fallos = self.actor.call(lambda: _emitir(doc, dwg.ents, tipos), TIMEOUT_BATCH_S)
+            except TimeoutError as exc:
                 # El lote puede haberse aplicado en parte: la sesión ya no es fiable.
                 self._sesion = None
                 raise HTTPException(
                     409,
                     "El CAD no terminó el lote a tiempo; el dibujo puede haber "
-                    "quedado parcial. Revise el CAD y vuelva a enviar el dibujo.")
+                    "quedado parcial. Revise el CAD y vuelva a enviar el dibujo.",
+                ) from exc
             except Exception as exc:
                 raise _a_409(exc) from exc
             s["recibidas"] += len(pares)
             s["creadas"] += creadas
             s["omitidas"] += len(fallos)
-            return {"creadas": creadas, "omitidas": len(fallos),
-                    "errores": fallos[:MAX_ERRORES]}
+            return {"creadas": creadas, "omitidas": len(fallos), "errores": fallos[:MAX_ERRORES]}
 
     def end(self, sesion_id: str) -> dict:
         with self._lock:
@@ -468,15 +492,21 @@ class ServicioCad:
             except Exception as exc:
                 raise _a_409(exc) from exc
             finally:
-                self._sesion = None   # se libera siempre, también si falla
+                self._sesion = None  # se libera siempre, también si falla
         creadas, omitidas = s["creadas"], s["omitidas"]
         nombre = documento or "(sin nombre)"
-        return {"documento": documento, "creadas": creadas, "omitidas": omitidas,
-                "resumen": (f"{s['programa']} — documento: {nombre} — "
-                            f"{creadas} entidades creadas, {omitidas} omitidas")}
+        return {
+            "documento": documento,
+            "creadas": creadas,
+            "omitidas": omitidas,
+            "resumen": (
+                f"{s['programa']} — documento: {nombre} — {creadas} entidades creadas, {omitidas} omitidas"
+            ),
+        }
 
 
 # ------------------------------------------------------------- rutas --
+
 
 def install_routes(app, call=None):
     """Monta las rutas del puente CAD en `app`.
@@ -491,7 +521,7 @@ def install_routes(app, call=None):
     router = APIRouter(route_class=_RutaCad)
 
     @router.post(PREFIJO + "/status")
-    def cad_status(body: Optional[StatusIn] = None):
+    def cad_status(body: StatusIn | None = None):
         return servicio.status()
 
     @router.post(PREFIJO + "/pick")
@@ -516,5 +546,6 @@ def install_routes(app, call=None):
         # Importación perezosa: bridge.cad_drwr_sap importa _RutaCad de este
         # módulo, así que no puede importarse al cargar cad_drwr.
         from bridge import cad_drwr_sap
+
         cad_drwr_sap.install_routes(app, call)
     return servicio

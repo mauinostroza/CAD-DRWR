@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests del puente CAD (bridge/cad_drwr.py) con COM FALSO.
 
 En Linux no hay Windows ni CAD: pythoncom, win32com, win32api, win32con,
@@ -21,12 +20,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-RAIZ = pathlib.Path(__file__).resolve().parents[1]          # workbench_module
+RAIZ = pathlib.Path(__file__).resolve().parents[1]  # workbench_module
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-from bridge import cad_drwr  # noqa: E402
 from backend.motor_calculo.cad_drwr.core import ir  # noqa: E402
+from bridge import cad_drwr  # noqa: E402
 
 PREF = "/v1/sap/actions/cad"
 HILO_COM = "cad-drwr-com"
@@ -35,6 +34,7 @@ NAN = float("nan")
 
 
 # ------------------------------------------------------------ COM falso --
+
 
 class ErrorCOM(Exception):
     """Imita pywin32.com_error: args = (hresult, mensaje)."""
@@ -149,7 +149,7 @@ class FakeDoc:
         """Imita el comando AutoLISP de selección de punto de cad_com_live."""
         self.m.llamar("SendCommand", (comando,))
         marcador = int(re.search(r'setvar "USERR3" (\d+)', comando).group(1))
-        self.vars["USERR3"] = float(marcador)      # el LISP fija el marcador
+        self.vars["USERR3"] = float(marcador)  # el LISP fija el marcador
         modo = self.m.modo_pick
         if modo == "com":
             raise ErrorCOM(-2147417851, "El servidor lanzó una excepción")
@@ -179,12 +179,12 @@ class Mundo:
     """Estado del CAD falso y registro de llamadas."""
 
     def __init__(self):
-        self.llamadas = []        # (hilo, método, args)
-        self.fallos = {}          # método -> excepción que lanza
-        self.apps = {}            # ProgID -> aplicación falsa
-        self.modo_pick = "ok"     # ok | cancel | com | silencio
+        self.llamadas = []  # (hilo, método, args)
+        self.fallos = {}  # método -> excepción que lanza
+        self.apps = {}  # ProgID -> aplicación falsa
+        self.modo_pick = "ok"  # ok | cancel | com | silencio
         self.punto = (0.0, 0.0)
-        self.coinit = []          # (hilo, flag) de CoInitializeEx
+        self.coinit = []  # (hilo, flag) de CoInitializeEx
         self.doc = None
         self._lock = threading.Lock()
 
@@ -244,10 +244,15 @@ def _instalar_com(monkeypatch, m):
     win32process.GetWindowThreadProcessId = lambda h: (2, 3)
     win32process.AttachThreadInput = lambda a, b, c: True
 
-    modulos = {"pythoncom": pythoncom, "win32com": win32com,
-               "win32com.client": client, "win32api": win32api,
-               "win32con": win32con, "win32gui": win32gui,
-               "win32process": win32process}
+    modulos = {
+        "pythoncom": pythoncom,
+        "win32com": win32com,
+        "win32com.client": client,
+        "win32api": win32api,
+        "win32con": win32con,
+        "win32gui": win32gui,
+        "win32process": win32process,
+    }
     for nombre, mod in modulos.items():
         monkeypatch.setitem(sys.modules, nombre, mod)
     monkeypatch.setattr(os, "name", "nt")
@@ -268,6 +273,7 @@ def cliente(mundo):
 
 
 # ------------------------------------------------------------- ayudas --
+
 
 def post(cli, ruta, cuerpo):
     return cli.post(PREF + ruta, json=cuerpo)
@@ -295,8 +301,16 @@ def texto(p, s, h=3.5, l=ir.L_TXT):
 
 
 def cota(a, b, base, txt="100", th=3.0):
-    return {"t": "dim", "a": list(a), "b": list(b), "base": list(base),
-            "v": False, "l": ir.L_ACOT, "txt": txt, "th": th}
+    return {
+        "t": "dim",
+        "a": list(a),
+        "b": list(b),
+        "base": list(base),
+        "v": False,
+        "l": ir.L_ACOT,
+        "txt": txt,
+        "th": th,
+    }
 
 
 def contrato():
@@ -315,6 +329,7 @@ def solo_msg(r):
 
 # ------------------------------------------------------------- status --
 
+
 def test_status_sin_cad(cliente):
     cli, _ = cliente
     r = post(cli, "/status", {})
@@ -332,9 +347,12 @@ def test_status_con_cad(cliente):
     r = post(cli, "/status", {})
     assert r.status_code == 200
     assert r.json() == {
-        "conectado": True, "programa": "ZWCAD", "version": "25.0",
+        "conectado": True,
+        "programa": "ZWCAD",
+        "version": "25.0",
         "documento": "Dibujo1.dwg",
-        "detalle": "ZWCAD | versión 25.0 | documento: Dibujo1.dwg"}
+        "detalle": "ZWCAD | versión 25.0 | documento: Dibujo1.dwg",
+    }
     assert sorted(r.json()) == claves_contrato("/status")
 
 
@@ -354,6 +372,7 @@ def test_status_rechaza_campos_extra(cliente):
 
 
 # --------------------------------------------------------------- pick --
+
 
 def test_pick_feliz(cliente):
     cli, m = cliente
@@ -409,13 +428,14 @@ def test_pick_rechaza_timeout_fuera_de_rango(cliente):
 
 # -------------------------------------------------------------- begin --
 
+
 def test_begin_sin_confirmed_422(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     r = post(cli, "/draw/begin", {"confirmed": False, "n_total": 3, "th": 3.5})
     assert r.status_code == 422
     assert "confirmed=true" in solo_msg(r)
-    assert m.metodos() == []          # no se tocó el CAD
+    assert m.metodos() == []  # no se tocó el CAD
 
 
 def test_begin_sin_cad_409(cliente):
@@ -437,20 +457,22 @@ def test_begin_reemplaza_la_sesion_anterior(cliente):
 
 # ---------------------------------------------------- flujo completo --
 
+
 def test_flujo_completo_begin_batch_end(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     st = post(cli, "/status", {}).json()
-    r = post(cli, "/draw/begin", {"confirmed": True, "origen": [1000, 500],
-                                  "n_total": 4, "th": 3.5})
+    r = post(cli, "/draw/begin", {"confirmed": True, "origen": [1000, 500], "n_total": 4, "th": 3.5})
     assert r.status_code == 200
     begin = r.json()
     sid = begin["sesion"]
 
-    b1 = post(cli, "/draw/batch", {"sesion": sid, "ents": [
-        linea((0, 0), (100, 0)), circulo((10, 10), 5)]})
-    b2 = post(cli, "/draw/batch", {"sesion": sid, "ents": [
-        texto((5, 5), "HOLA"), cota((0, 0), (100, 0), (50, -20))]})
+    b1 = post(cli, "/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (100, 0)), circulo((10, 10), 5)]})
+    b2 = post(
+        cli,
+        "/draw/batch",
+        {"sesion": sid, "ents": [texto((5, 5), "HOLA"), cota((0, 0), (100, 0), (50, -20))]},
+    )
     assert b1.status_code == 200 and b2.status_code == 200
     assert b1.json() == {"creadas": 2, "omitidas": 0, "errores": []}
     assert b2.json() == {"creadas": 2, "omitidas": 0, "errores": []}
@@ -486,40 +508,54 @@ def test_origen_desplaza_todas_las_coordenadas(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     sid = abrir(cli, origen=[-50, 25])
-    post(cli, "/draw/batch", {"sesion": sid, "ents": [
-        linea((0, 0), (100, 0)),
-        circulo((10, 10), 5),
-        cota((0, 0), (100, 0), (50, -20)),
-    ]})
+    post(
+        cli,
+        "/draw/batch",
+        {
+            "sesion": sid,
+            "ents": [
+                linea((0, 0), (100, 0)),
+                circulo((10, 10), 5),
+                cota((0, 0), (100, 0), (50, -20)),
+            ],
+        },
+    )
     ln = m.argumentos("AddLine")[0]
     assert ln[0].valor == (-50.0, 25.0, 0.0)
     assert ln[1].valor == (50.0, 25.0, 0.0)
     assert m.argumentos("AddCircle")[0][0].valor == (-40.0, 35.0, 0.0)
     cot = m.argumentos("AddDimRotated")[0]
-    assert cot[2].valor == (0.0, 5.0, 0.0)            # base (50, -20) desplazada
+    assert cot[2].valor == (0.0, 5.0, 0.0)  # base (50, -20) desplazada
 
 
 # ------------------------------------------------- validación de lotes --
 
 ENTIDADES_INVALIDAS = [
-    ("tipo_desconocido", {"t": "triangle", "l": ir.L_CONC},
-     "Tipo de entidad no admitido"),
-    ("capa_desconocida", {"t": "line", "a": [0, 0], "b": [1, 1], "l": "NO_EXISTE"},
-     "Capa desconocida: NO_EXISTE"),
-    ("demasiados_puntos", {"t": "poly", "p": [[i, i] for i in range(2001)],
-                           "l": ir.L_CONC},
-     "Lista demasiado larga (máximo 2000 elementos)"),
-    ("texto_largo", {"t": "text", "p": [0, 0], "s": "x" * 501, "h": 3.5,
-                     "l": ir.L_TXT},
-     "Texto demasiado largo (máximo 500 caracteres)"),
-    ("coordenada_excesiva", {"t": "line", "a": [1e10, 0], "b": [1, 1],
-                             "l": ir.L_CONC},
-     "menor o igual que 1000000000"),
+    ("tipo_desconocido", {"t": "triangle", "l": ir.L_CONC}, "Tipo de entidad no admitido"),
+    (
+        "capa_desconocida",
+        {"t": "line", "a": [0, 0], "b": [1, 1], "l": "NO_EXISTE"},
+        "Capa desconocida: NO_EXISTE",
+    ),
+    (
+        "demasiados_puntos",
+        {"t": "poly", "p": [[i, i] for i in range(2001)], "l": ir.L_CONC},
+        "Lista demasiado larga (máximo 2000 elementos)",
+    ),
+    (
+        "texto_largo",
+        {"t": "text", "p": [0, 0], "s": "x" * 501, "h": 3.5, "l": ir.L_TXT},
+        "Texto demasiado largo (máximo 500 caracteres)",
+    ),
+    (
+        "coordenada_excesiva",
+        {"t": "line", "a": [1e10, 0], "b": [1, 1], "l": ir.L_CONC},
+        "menor o igual que 1000000000",
+    ),
 ]
 
 
-@pytest.mark.parametrize("nombre,ent,mensaje", ENTIDADES_INVALIDAS,
-                         ids=[c[0] for c in ENTIDADES_INVALIDAS])
+@pytest.mark.parametrize("nombre,ent,mensaje", ENTIDADES_INVALIDAS, ids=[c[0] for c in ENTIDADES_INVALIDAS])
 def test_entidad_invalida_422(cliente, nombre, ent, mensaje):
     cli, m = cliente
     m.conectar_zwcad()
@@ -527,17 +563,15 @@ def test_entidad_invalida_422(cliente, nombre, ent, mensaje):
     r = post(cli, "/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1)), ent]})
     assert r.status_code == 422, r.text
     assert mensaje in solo_msg(r)
-    assert not [x for x in m.metodos() if x.startswith("Add")]   # lote entero rechazado
+    assert not [x for x in m.metodos() if x.startswith("Add")]  # lote entero rechazado
 
 
 def test_nan_en_coordenada_422(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     sid = abrir(cli)
-    cuerpo = ('{"sesion": "%s", "ents": [{"t": "line", "a": [NaN, 0], '
-              '"b": [1, 1], "l": "CONCRETO"}]}' % sid)
-    r = cli.post(PREF + "/draw/batch", content=cuerpo,
-                 headers={"content-type": "application/json"})
+    cuerpo = f'{{"sesion": "{sid}", "ents": [{{"t": "line", "a": [NaN, 0], "b": [1, 1], "l": "CONCRETO"}}]}}'
+    r = cli.post(PREF + "/draw/batch", content=cuerpo, headers={"content-type": "application/json"})
     assert r.status_code == 422
     assert "finito" in solo_msg(r)
     assert not [x for x in m.metodos() if x.startswith("Add")]
@@ -547,8 +581,7 @@ def test_lote_mayor_de_1000_422(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     sid = abrir(cli, n_total=5000)
-    r = post(cli, "/draw/batch", {"sesion": sid,
-                                  "ents": [linea((0, 0), (1, 1))] * 1001})
+    r = post(cli, "/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1))] * 1001})
     assert r.status_code == 422
     assert "Lista demasiado larga (máximo 1000 elementos)" in solo_msg(r)
 
@@ -557,8 +590,7 @@ def test_lote_que_supera_n_total_422(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     sid = abrir(cli, n_total=1)
-    r = post(cli, "/draw/batch", {"sesion": sid,
-                                  "ents": [linea((0, 0), (1, 1)), linea((0, 0), (2, 2))]})
+    r = post(cli, "/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1)), linea((0, 0), (2, 2))]})
     assert r.status_code == 422
     assert "supera el total declarado" in solo_msg(r)
     # Un lote que sí cabe se acepta después del rechazo.
@@ -568,13 +600,17 @@ def test_lote_que_supera_n_total_422(cliente):
 
 # ------------------------------------------------- fallos y registros --
 
+
 def test_fallo_com_en_una_entidad_se_registra(cliente):
     cli, m = cliente
     m.conectar_zwcad()
     m.fallos["AddCircle"] = ErrorCOM(-2147352567, "Fallo simulado al crear el círculo")
     sid = abrir(cli)
-    r = post(cli, "/draw/batch", {"sesion": sid, "ents": [
-        linea((0, 0), (1, 1)), circulo((5, 5), 2), linea((2, 2), (3, 3))]})
+    r = post(
+        cli,
+        "/draw/batch",
+        {"sesion": sid, "ents": [linea((0, 0), (1, 1)), circulo((5, 5), 2), linea((2, 2), (3, 3))]},
+    )
     assert r.status_code == 200
     d = r.json()
     assert d["creadas"] == 2 and d["omitidas"] == 1
@@ -591,8 +627,7 @@ def test_errores_de_lote_se_limitan_a_50(cliente):
     m.conectar_zwcad()
     m.fallos["AddLine"] = ErrorCOM(-2147352567, "Fallo masivo")
     sid = abrir(cli, n_total=200)
-    r = post(cli, "/draw/batch", {"sesion": sid,
-                                  "ents": [linea((0, 0), (1, 1))] * 60})
+    r = post(cli, "/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1))] * 60})
     d = r.json()
     assert d["omitidas"] == 60
     assert len(d["errores"]) == 50
@@ -600,14 +635,17 @@ def test_errores_de_lote_se_limitan_a_50(cliente):
 
 # ------------------------------------------------------- sesión vencida --
 
+
 def test_sesion_vencida_409(cliente, monkeypatch):
     cli, m = cliente
     m.conectar_zwcad()
     sid = abrir(cli)
     monkeypatch.setattr(cad_drwr, "TTL_SESION_S", 0.0)
     time.sleep(0.01)
-    for ruta, cuerpo in (("/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1))]}),
-                         ("/draw/end", {"sesion": sid})):
+    for ruta, cuerpo in (
+        ("/draw/batch", {"sesion": sid, "ents": [linea((0, 0), (1, 1))]}),
+        ("/draw/end", {"sesion": sid}),
+    ):
         r = post(cli, ruta, cuerpo)
         assert r.status_code == 409
         assert r.json()["detail"] == "La sesión de dibujo venció; vuelva a enviar"
@@ -623,11 +661,15 @@ def test_sesion_desconocida_409(cliente):
 
 # ------------------------------------------------------------ contrato --
 
+
 def test_contrato_cubre_exactamente_las_rutas_montadas(cliente):
     cli, _ = cliente
     # openapi es estable entre versiones de FastAPI (include_router cambió de forma)
-    rutas = {f"POST {ruta}" for ruta, ops in cli.app.openapi()["paths"].items()
-             if ruta.startswith(PREF) and "post" in ops}
+    rutas = {
+        f"POST {ruta}"
+        for ruta, ops in cli.app.openapi()["paths"].items()
+        if ruta.startswith(PREF) and "post" in ops
+    }
     # Las rutas SAP solo se montan si se pasa `call`; se verifican aparte
     # en tests/test_bridge_cad_drwr_sap.py.
     assert {r for r in contrato() if "/cad/sap/" not in r} == rutas

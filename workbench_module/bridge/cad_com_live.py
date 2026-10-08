@@ -44,9 +44,18 @@ import random
 import time
 
 from backend.motor_calculo.cad_drwr.core import ir
-from backend.motor_calculo.cad_drwr.core.ir import (Line, Circle, Arc, Poly,
-                                                     Filled, Text, Dim, Leader,
-                                                     Table, Drawing)
+from backend.motor_calculo.cad_drwr.core.ir import (
+    Line,
+    Circle,
+    Arc,
+    Poly,
+    Filled,
+    Text,
+    Dim,
+    Leader,
+    Table,
+    Drawing,
+)
 from backend.motor_calculo.cad_drwr.serializar import inferir_th as _infer_th
 
 PROGIDS = [
@@ -56,9 +65,18 @@ PROGIDS = [
 ]
 
 # grosores de capa en centésimas de mm (copia de cad/dxf_out.py::_LW)
-_LW = {ir.L_EJE: 13, ir.L_ACOT: 18, ir.L_TXT: 18, ir.L_CONC: 35,
-       ir.L_ACERO: 50, ir.L_PERF: 25, ir.L_SOLD: 18, ir.L_HACH: 9,
-       ir.L_TABLA: 18, ir.L_OCULTO: 18}
+_LW = {
+    ir.L_EJE: 13,
+    ir.L_ACOT: 18,
+    ir.L_TXT: 18,
+    ir.L_CONC: 35,
+    ir.L_ACERO: 50,
+    ir.L_PERF: 25,
+    ir.L_SOLD: 18,
+    ir.L_HACH: 9,
+    ir.L_TABLA: 18,
+    ir.L_OCULTO: 18,
+}
 
 
 def _infer_ltscale(dwg):
@@ -69,21 +87,25 @@ def _infer_ltscale(dwg):
 
 # ------------------------------------------------------------- conexión --
 
+
 def _com():
     """Importa pywin32 (solo Windows). Lanza RuntimeError con mensaje claro."""
     if os.name != "nt":
         raise RuntimeError(
             "La conexión COM en vivo solo está disponible en Windows. "
-            "Use la exportación DXF y abra el archivo en AutoCAD/ZWCAD.")
+            "Use la exportación DXF y abra el archivo en AutoCAD/ZWCAD."
+        )
     try:
         import pythoncom
         from win32com.client import GetActiveObject, VARIANT
+
         return pythoncom, GetActiveObject, VARIANT
     except ImportError:
         raise RuntimeError(
             "pywin32 no está instalado. Ejecute:\n"
             "    pip install pywin32\n"
-            "y vuelva a intentar el envío en vivo.")
+            "y vuelva a intentar el envío en vivo."
+        )
 
 
 def detectar():
@@ -99,7 +121,8 @@ def detectar():
     raise RuntimeError(
         "No se encontró AutoCAD, ZWCAD o BricsCAD abierto.\n"
         "Inicie el programa CAD (con al menos un documento activo) "
-        "y reintente el envío en vivo.")
+        "y reintente el envío en vivo."
+    )
 
 
 def _documento(app, abrir=None):
@@ -131,6 +154,7 @@ def _asentar_mensajes(pythoncom, segundos: float = 0.35):
     ventana del CAD, antes de que su propio message loop procese esos
     cambios (activación, repintado)."""
     import time
+
     fin = time.monotonic() + segundos
     while time.monotonic() < fin:
         try:
@@ -156,8 +180,7 @@ def _pedir_get_point(doc, mensaje, pythoncom):
             raise
 
 
-def _pedir_punto_por_comando(doc, mensaje, pythoncom,
-                              tiempo_maximo: float = 600.0):
+def _pedir_punto_por_comando(doc, mensaje, pythoncom, tiempo_maximo: float = 600.0):
     """Pide un punto mediante el *command loop* propio del CAD.
 
     ``Utility.GetPoint`` es una llamada COM interactiva. En algunas
@@ -173,12 +196,9 @@ def _pedir_punto_por_comando(doc, mensaje, pythoncom,
     el clic. Las variables se restauran siempre al finalizar.
     """
     try:
-        anteriores = tuple(float(doc.GetVariable(nombre))
-                            for nombre in ("USERR1", "USERR2", "USERR3"))
+        anteriores = tuple(float(doc.GetVariable(nombre)) for nombre in ("USERR1", "USERR2", "USERR3"))
     except Exception as exc:
-        raise RuntimeError(
-            "El CAD no permite preparar la selección de punto por comando: "
-            f"{exc}") from exc
+        raise RuntimeError(f"El CAD no permite preparar la selección de punto por comando: {exc}") from exc
 
     # Marcador distinto de cero: positivo = esperando, negativo = éxito,
     # cero = el usuario canceló con Esc. Se evita 0 porque es el estado que
@@ -208,14 +228,13 @@ def _pedir_punto_por_comando(doc, mensaje, pythoncom,
                 pass
             estado = float(doc.GetVariable("USERR3"))
             if estado == -marcador:
-                return (float(doc.GetVariable("USERR1")),
-                        float(doc.GetVariable("USERR2")))
+                return (float(doc.GetVariable("USERR1")), float(doc.GetVariable("USERR2")))
             if estado == 0:
                 raise RuntimeError("Selección de punto cancelada.")
             time.sleep(0.05)
         raise RuntimeError(
-            "El CAD no terminó la selección de punto. Presione Esc en el "
-            "CAD y vuelva a intentarlo.")
+            "El CAD no terminó la selección de punto. Presione Esc en el CAD y vuelva a intentarlo."
+        )
     finally:
         for nombre, valor in zip(("USERR1", "USERR2", "USERR3"), anteriores):
             try:
@@ -255,22 +274,20 @@ def traer_al_frente(app):
         import win32con
         import win32gui
         import win32process
+
         hwnd = int(app.HWnd)
         if win32gui.IsIconic(hwnd):
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         actual = win32api.GetCurrentThreadId()
         frente = win32gui.GetForegroundWindow()
-        hilo_frente = (win32process.GetWindowThreadProcessId(frente)[0]
-                      if frente else 0)
+        hilo_frente = win32process.GetWindowThreadProcessId(frente)[0] if frente else 0
         hilo_destino = win32process.GetWindowThreadProcessId(hwnd)[0]
         adj_frente = adj_destino = False
         try:
             if hilo_frente and hilo_frente != actual:
-                adj_frente = win32process.AttachThreadInput(
-                    actual, hilo_frente, True)
+                adj_frente = win32process.AttachThreadInput(actual, hilo_frente, True)
             if hilo_destino and hilo_destino != actual:
-                adj_destino = win32process.AttachThreadInput(
-                    actual, hilo_destino, True)
+                adj_destino = win32process.AttachThreadInput(actual, hilo_destino, True)
             win32gui.BringWindowToTop(hwnd)
             win32gui.SetForegroundWindow(hwnd)
         finally:
@@ -284,8 +301,7 @@ def traer_al_frente(app):
 
 def _pt(VARIANT, pythoncom, p, z=0.0):
     """Punto IR (x, y) -> VARIANT array 3D para la API COM."""
-    return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8,
-                   (float(p[0]), float(p[1]), float(z)))
+    return VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, (float(p[0]), float(p[1]), float(z)))
 
 
 def _flat(VARIANT, pythoncom, pts):
@@ -296,6 +312,7 @@ def _flat(VARIANT, pythoncom, pts):
 
 
 # ------------------------------------------------------------- capas --
+
 
 def _capas(doc):
     for name, aci in ir.LAYER_COLORS.items():
@@ -333,11 +350,21 @@ def _vars_cota(doc, dwg):
     """Variables de estilo de cota equivalentes al dimstyle del DXF."""
     th = _infer_th(dwg)
     pares = [
-        ("DIMTXT", th), ("DIMASZ", 0.85 * th), ("DIMEXE", 0.45 * th),
-        ("DIMEXO", 0.30 * th), ("DIMGAP", 0.70 * th), ("DIMTAD", 1),
-        ("DIMTIH", 0), ("DIMTOH", 0), ("DIMSCALE", 1.0),
-        ("DIMTOFL", 1), ("DIMSOXD", 0),
-        ("DIMJUST", 0), ("DIMDEC", 0), ("DIMZIN", 8), ("DIMLUNIT", 2),
+        ("DIMTXT", th),
+        ("DIMASZ", 0.85 * th),
+        ("DIMEXE", 0.45 * th),
+        ("DIMEXO", 0.30 * th),
+        ("DIMGAP", 0.70 * th),
+        ("DIMTAD", 1),
+        ("DIMTIH", 0),
+        ("DIMTOH", 0),
+        ("DIMSCALE", 1.0),
+        ("DIMTOFL", 1),
+        ("DIMSOXD", 0),
+        ("DIMJUST", 0),
+        ("DIMDEC", 0),
+        ("DIMZIN", 8),
+        ("DIMLUNIT", 2),
         ("LTSCALE", _infer_ltscale(dwg)),
     ]
     for k, v in pares:
@@ -351,9 +378,15 @@ def _vars_cota(doc, dwg):
 
 # enum acAlignment de AutoCAD/ZWCAD
 _ALTXT = {
-    ("l", "b"): 12, ("c", "b"): 13, ("r", "b"): 14,
-    ("l", "m"): 9, ("c", "m"): 10, ("r", "m"): 11,
-    ("l", "t"): 6, ("c", "t"): 7, ("r", "t"): 8,
+    ("l", "b"): 12,
+    ("c", "b"): 13,
+    ("r", "b"): 14,
+    ("l", "m"): 9,
+    ("c", "m"): 10,
+    ("r", "m"): 11,
+    ("l", "t"): 6,
+    ("c", "t"): 7,
+    ("r", "t"): 8,
 }
 
 
@@ -369,9 +402,9 @@ def _texto(msp, e, VPT):
         pass
     al = _ALTXT.get((e.ha, e.va), 0)
     try:
-        if al in (0, 1, 2):          # usa punto de inserción
+        if al in (0, 1, 2):  # usa punto de inserción
             t.InsertionPoint = VPT(e.pos, 0.0)
-        else:                        # alineaciones de bloque: punto de alineación
+        else:  # alineaciones de bloque: punto de alineación
             t.Alignment = al
             t.TextAlignmentPoint = VPT(e.pos, 0.0)
     except Exception:
@@ -387,6 +420,7 @@ def _texto(msp, e, VPT):
 
 
 # ----------------------------------------------------------- entidades --
+
 
 def _emit(msp, e, VPT, VF, pythoncom, VARIANT):
     """Crea una entidad IR primitiva en el espacio modelo COM."""
@@ -412,6 +446,7 @@ def _emit(msp, e, VPT, VF, pythoncom, VARIANT):
             try:
                 h = msp.AddHatch(0, "SOLID", True)
                 from win32com.client import VARIANT as V
+
                 loop = V(pythoncom.VT_ARRAY | pythoncom.VT_DISPATCH, [c])
                 h.AppendOuterLoop(loop)
                 h.Layer = e.layer
@@ -460,10 +495,14 @@ def _dim(msp, e, VPT):
             pass
     if e.text_height > 0:
         th = e.text_height
-        for name, value in (("TextHeight", th), ("ArrowheadSize", 0.85 * th),
-                            ("ExtensionLineExtend", 0.45 * th),
-                            ("ExtensionLineOffset", 0.30 * th),
-                            ("TextGap", 0.70 * th), ("ScaleFactor", 1.0)):
+        for name, value in (
+            ("TextHeight", th),
+            ("ArrowheadSize", 0.85 * th),
+            ("ExtensionLineExtend", 0.45 * th),
+            ("ExtensionLineOffset", 0.30 * th),
+            ("TextGap", 0.70 * th),
+            ("ScaleFactor", 1.0),
+        ):
             try:
                 setattr(dim, name, value)
             except Exception:
@@ -479,13 +518,16 @@ def _dim(msp, e, VPT):
 def _aplanar(dwg: Drawing):
     """Las llamadas y tablas usan la misma geometría que preview y DXF."""
     from backend.motor_calculo.cad_drwr.core.annotations import expand_annotations
+
     return list(expand_annotations(dwg.ents))
 
 
 # ------------------------------------------------------------- API pública --
 
-def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
-                  app=None, doc=None, pid=None, progress_cb=None) -> str:
+
+def enviar_dibujo(
+    dwg: Drawing, abrir: str = None, origen=None, app=None, doc=None, pid=None, progress_cb=None
+) -> str:
     """Envía el dibujo IR a la sesión CAD abierta (COM en vivo).
 
     Si `abrir` es una ruta .dxf, en su lugar abre ese archivo en el CAD.
@@ -532,7 +574,7 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
         errs = 0
         failures = []
         total = len(prims)
-        paso = max(1, total // 40)   # ~40 actualizaciones de progreso
+        paso = max(1, total // 40)  # ~40 actualizaciones de progreso
         for i, e in enumerate(prims):
             if isinstance(e, Dim):
                 try:
@@ -572,8 +614,8 @@ def enviar_dibujo(dwg: Drawing, abrir: str = None, origen=None,
         if errs:
             raise RuntimeError(
                 f"ENVÍO INCOMPLETO: {resumen}; {errs} entidades fallaron. "
-                "Revise o elimine el detalle parcial antes de reenviar.\n" +
-                "\n".join(failures[:10]))
+                "Revise o elimine el detalle parcial antes de reenviar.\n" + "\n".join(failures[:10])
+            )
         return resumen
     finally:
         pythoncom.CoUninitialize()
@@ -586,8 +628,7 @@ def abrir_dxf_en_cad(path: str) -> str:
     return enviar_dibujo(Drawing(), abrir=path)
 
 
-def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: ",
-                app=None, doc=None):
+def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: ", app=None, doc=None):
     """Activa el documento del CAD y pide al usuario un clic en pantalla
     (comando nativo GetPoint). Devuelve (x, y) en coordenadas de modelo
     del CAD. Lanza RuntimeError si no hay CAD/documento, si se cancela
@@ -613,8 +654,8 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
             doc.Activate()
         except Exception:
             pass
-        traer_al_frente(app)   # fuerza foco real de Windows (ver docstring)
-        _asentar_mensajes(pythoncom)   # deja procesar la activación de la ventana
+        traer_al_frente(app)  # fuerza foco real de Windows (ver docstring)
+        _asentar_mensajes(pythoncom)  # deja procesar la activación de la ventana
         try:
             # No usar Utility.GetPoint aquí. En ZWCAD puede lanzar
             # RPC_E_SERVERFAULT al entrar en modo interactivo desde COM; el
@@ -623,12 +664,9 @@ def pedir_punto(mensaje: str = "Especifique el punto de inserción del dibujo: "
         except RuntimeError:
             raise
         except Exception as exc:
-            raise RuntimeError(
-                "No se pudo iniciar la selección de punto en el CAD: "
-                f"{exc}") from exc
+            raise RuntimeError(f"No se pudo iniciar la selección de punto en el CAD: {exc}") from exc
         if not isinstance(pt, (list, tuple)) or len(pt) < 2:
-            raise RuntimeError(
-                f"El CAD devolvió un punto con formato inesperado: {pt!r}")
+            raise RuntimeError(f"El CAD devolvió un punto con formato inesperado: {pt!r}")
         return (float(pt[0]), float(pt[1]))
     finally:
         pythoncom.CoUninitialize()

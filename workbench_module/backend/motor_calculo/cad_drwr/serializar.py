@@ -43,20 +43,41 @@ def entidad_a_json(e):
     if isinstance(e, ir.Circle):
         return {"t": "circle", "c": _p(e.c), "r": _r(e.r), "l": e.layer, "f": bool(e.filled)}
     if isinstance(e, ir.Arc):
-        return {"t": "arc", "c": _p(e.c), "r": _r(e.r), "a1": _r(e.a1), "a2": _r(e.a2),
-                "ccw": bool(e.ccw), "l": e.layer}
+        return {
+            "t": "arc",
+            "c": _p(e.c),
+            "r": _r(e.r),
+            "a1": _r(e.a1),
+            "a2": _r(e.a2),
+            "ccw": bool(e.ccw),
+            "l": e.layer,
+        }
     if isinstance(e, ir.Poly):
-        return {"t": "poly", "p": [_p(p) for p in e.pts], "z": bool(e.closed),
-                "l": e.layer, "w": _r(e.width)}
+        return {"t": "poly", "p": [_p(p) for p in e.pts], "z": bool(e.closed), "l": e.layer, "w": _r(e.width)}
     if isinstance(e, ir.Filled):
         return {"t": "filled", "p": [_p(p) for p in e.pts], "l": e.layer}
     if isinstance(e, ir.Text):
-        return {"t": "text", "p": _p(e.pos), "s": e.s, "h": _r(e.h), "rot": _r(e.rot),
-                "l": e.layer, "ha": e.ha, "va": e.va}
+        return {
+            "t": "text",
+            "p": _p(e.pos),
+            "s": e.s,
+            "h": _r(e.h),
+            "rot": _r(e.rot),
+            "l": e.layer,
+            "ha": e.ha,
+            "va": e.va,
+        }
     if isinstance(e, ir.Dim):
-        return {"t": "dim", "a": _p(e.p1), "b": _p(e.p2), "base": _p(e.base),
-                "v": bool(e.vertical), "l": e.layer, "txt": e.txt,
-                "th": _r(e.text_height)}
+        return {
+            "t": "dim",
+            "a": _p(e.p1),
+            "b": _p(e.p2),
+            "base": _p(e.base),
+            "v": bool(e.vertical),
+            "l": e.layer,
+            "txt": e.txt,
+            "th": _r(e.text_height),
+        }
     raise TypeError(f"Entidad IR no serializable: {type(e).__name__}")
 
 
@@ -68,19 +89,33 @@ def entidad_desde_json(d):
     if t == "circle":
         return ir.Circle(pt(d["c"]), float(d["r"]), d["l"], bool(d.get("f", False)))
     if t == "arc":
-        return ir.Arc(pt(d["c"]), float(d["r"]), float(d["a1"]), float(d["a2"]),
-                      bool(d.get("ccw", True)), d["l"])
+        return ir.Arc(
+            pt(d["c"]), float(d["r"]), float(d["a1"]), float(d["a2"]), bool(d.get("ccw", True)), d["l"]
+        )
     if t == "poly":
-        return ir.Poly([pt(p) for p in d["p"]], bool(d.get("z", False)), d["l"],
-                       float(d.get("w", 0.0)))
+        return ir.Poly([pt(p) for p in d["p"]], bool(d.get("z", False)), d["l"], float(d.get("w", 0.0)))
     if t == "filled":
         return ir.Filled([pt(p) for p in d["p"]], d["l"])
     if t == "text":
-        return ir.Text(pt(d["p"]), str(d["s"]), float(d["h"]), float(d.get("rot", 0.0)),
-                       d["l"], d.get("ha", "c"), d.get("va", "m"))
+        return ir.Text(
+            pt(d["p"]),
+            str(d["s"]),
+            float(d["h"]),
+            float(d.get("rot", 0.0)),
+            d["l"],
+            d.get("ha", "c"),
+            d.get("va", "m"),
+        )
     if t == "dim":
-        return ir.Dim(pt(d["a"]), pt(d["b"]), pt(d["base"]), bool(d.get("v", False)),
-                      d["l"], d.get("txt"), float(d.get("th", 0.0)))
+        return ir.Dim(
+            pt(d["a"]),
+            pt(d["b"]),
+            pt(d["base"]),
+            bool(d.get("v", False)),
+            d["l"],
+            d.get("txt"),
+            float(d.get("th", 0.0)),
+        )
     raise ValueError(f"Tipo de entidad desconocido: {t!r}")
 
 

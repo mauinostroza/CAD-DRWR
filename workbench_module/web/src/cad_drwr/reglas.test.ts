@@ -23,7 +23,7 @@ function coincide(obtenido: ParamValor | undefined, esperado: ParamValor): boole
   return obtenido === esperado
 }
 
-const etiquetados: [string, Escenario][] = casos.map((c) => [`${c.modulo} · ${c.nombre}`, c])
+const etiquetados: [string, Escenario][] = casos.map(c => [`${c.modulo} · ${c.nombre}`, c])
 
 describe('reglas_ui frente al golden del escritorio', () => {
   it('el golden tiene los 59 escenarios esperados', () => {
@@ -37,7 +37,7 @@ describe('reglas_ui frente al golden del escritorio', () => {
   it.each(etiquetados)('aplicarCambio · %s', (_nombre, c) => {
     const nuevo = aplicarCambio(c.modulo, c.params_antes, c.campo, c.valor, c.params_antes)
     const claves = new Set([...Object.keys(nuevo), ...Object.keys(c.params_despues)])
-    const difs = [...claves].filter((k) => !coincide(nuevo[k], c.params_despues[k]))
+    const difs = [...claves].filter(k => !coincide(nuevo[k], c.params_despues[k]))
     expect(difs).toEqual([])
     expect(nuevo._escala).toBe(c.params_despues._escala)
   })

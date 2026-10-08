@@ -1,12 +1,12 @@
 import json
-import sys
 import pathlib
+import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
+from backend.motor_calculo.cad_drwr import serializar as s  # noqa: E402
 from backend.motor_calculo.cad_drwr.core import ir  # noqa: E402
 from backend.motor_calculo.cad_drwr.core.bounds import drawing_bounds  # noqa: E402
-from backend.motor_calculo.cad_drwr import serializar as s  # noqa: E402
 
 
 def _dibujo():

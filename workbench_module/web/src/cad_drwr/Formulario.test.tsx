@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vitest'
 import { Formulario } from './Formulario'
 import type { Campo, ModuloInfo, Params } from './tipos'
+
+afterEach(cleanup)
 
 const campos: Campo[] = [
   {
@@ -111,18 +113,12 @@ describe('Formulario (pedestal)', () => {
   })
 
   it('n_sup queda deshabilitado en "Total anterior" y habilitado en "Por caras"', () => {
-    const { unmount } = render(
-      <Formulario modulo={pedestal} valores={valoresBase} onCambio={vi.fn()} />,
-    )
+    const { unmount } = render(<Formulario modulo={pedestal} valores={valoresBase} onCambio={vi.fn()} />)
     expect(screen.getByLabelText('Barras superiores (incl. esquinas)')).toBeDisabled()
     unmount()
 
     render(
-      <Formulario
-        modulo={pedestal}
-        valores={{ ...valoresBase, preset: 'Por caras' }}
-        onCambio={vi.fn()}
-      />,
+      <Formulario modulo={pedestal} valores={{ ...valoresBase, preset: 'Por caras' }} onCambio={vi.fn()} />,
     )
     expect(screen.getByLabelText('Barras superiores (incl. esquinas)')).toBeEnabled()
   })

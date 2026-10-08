@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Reglas de interfaz de los Panel del escritorio, sin Qt.
 
 Porta a funciones puras la lógica que el ORIGINAL ejecuta en ``on_change`` de
@@ -33,7 +32,7 @@ diccionario recibido. Comprobado con el ORIGINAL:
 Fuera de alcance: no se replican ``set_params`` ni la construcción de widgets.
 """
 
-from . import anchor_bolt, base_plate, bar_shape, pedestal, profile, slab
+from . import anchor_bolt, bar_shape, base_plate, pedestal, profile, slab
 
 # Módulos con reglas de interfaz (fundacion_sap es interactivo y no aplica).
 _MODULOS = {
@@ -132,8 +131,7 @@ def _hab_perno(v):
     pg = str(v["tipo"]).startswith("PG")
     inch = pg and v["d_nominal"] == "1 in"
     out = {"d_perno": not inch, "lg": not pg}
-    for clave in ("d_nominal", "h1", "h2", "W", "t_golilla", "b_golilla",
-                  "permitir_h1_bajo_tc"):
+    for clave in ("d_nominal", "h1", "h2", "W", "t_golilla", "b_golilla", "permitir_h1_bajo_tc"):
         out[clave] = pg
     return out
 

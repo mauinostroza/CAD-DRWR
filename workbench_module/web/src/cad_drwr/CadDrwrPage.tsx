@@ -54,7 +54,7 @@ const FORMATO = new Intl.NumberFormat('es', { maximumFractionDigits: 1 })
 // Caché a nivel de módulo: la lista se pide una sola vez y se reintenta si falla.
 let cargaModulos: Promise<ModuloInfo[]> | null = null
 
-const esperar = (ms: number) => new Promise<void>((resolver) => setTimeout(resolver, ms))
+const esperar = (ms: number) => new Promise<void>(resolver => setTimeout(resolver, ms))
 
 async function pedirModulosConReintento(): Promise<ModuloInfo[]> {
   let ultimo: unknown
@@ -98,7 +98,7 @@ function useModulos() {
   useEffect(() => {
     let vivo = true
     cargarModulos().then(
-      (modulos) => {
+      modulos => {
         if (vivo) setEstado({ modulos, error: null })
       },
       (e: unknown) => {
@@ -113,7 +113,7 @@ function useModulos() {
   const reintentar = useCallback(() => {
     reiniciarCargaModulos()
     setEstado({ modulos: null, error: null })
-    setIntento((n) => n + 1)
+    setIntento(n => n + 1)
   }, [])
 
   return { ...estado, reintentar }
@@ -153,18 +153,10 @@ function nombreSeguro(nombre: string): string {
 
 // ------------------------------------------------------------- subcomponentes --
 /** Espesor por defecto del módulo interactivo: el borrador de texto permite escribir libremente. */
-function CampoEspesor({
-  id,
-  valor,
-  onElegir,
-}: {
-  id: string
-  valor: number
-  onElegir: (n: number) => void
-}) {
+function CampoEspesor({ id, valor, onElegir }: { id: string; valor: number; onElegir: (n: number) => void }) {
   const [texto, setTexto] = useState(String(valor))
   useEffect(() => {
-    setTexto((t) => (Number(t) === valor ? t : String(valor)))
+    setTexto(t => (Number(t) === valor ? t : String(valor)))
   }, [valor])
 
   return (
@@ -176,7 +168,7 @@ function CampoEspesor({
         min={0}
         step={1}
         value={texto}
-        onChange={(e) => {
+        onChange={e => {
           const t = e.target.value
           setTexto(t)
           const n = Number(t)
@@ -215,8 +207,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
   const [dialogoLamina, setDialogoLamina] = useState(false)
   const [nombrePlantilla, setNombrePlantilla] = useState('')
 
-  const modulo: ModuloInfo | undefined =
-    modulos?.find((m) => m.id === edicion.modulo) ?? modulos?.[0]
+  const modulo: ModuloInfo | undefined = modulos?.find(m => m.id === edicion.modulo) ?? modulos?.[0]
   const interactivo = modulo?.interactivo === true
   const valores = useMemo<Params>(
     () => (modulo ? valoresDe(modulo, edicion.params) : {}),
@@ -235,12 +226,9 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
 
   // Al llegar el dibujo de OTRO módulo se reajusta la vista; al editar el mismo se conserva.
   const moduloDibujado = dibujo?.modulo
-  useEffect(() => setAjuste((n) => n + 1), [moduloDibujado])
+  useEffect(() => setAjuste(n => n + 1), [moduloDibujado])
 
-  const capasPresentes = useMemo(
-    () => [...new Set(dibujo?.render.map((e) => e.l) ?? [])].sort(),
-    [dibujo],
-  )
+  const capasPresentes = useMemo(() => [...new Set(dibujo?.render.map(e => e.l) ?? [])].sort(), [dibujo])
   const solapes = dibujo?.solapes ?? []
 
   // ----------------------------------------------------------- persistencia --
@@ -312,11 +300,11 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
   const cambiarLamina = (cambios: Partial<Lamina>, origen: string) =>
     fijar({ ...edicion, lamina: { ...edicion.lamina, ...cambios } }, origen)
 
-  const togglePanel = (p: Exclude<Panel, null>) => setPanel((actual) => (actual === p ? null : p))
+  const togglePanel = (p: Exclude<Panel, null>) => setPanel(actual => (actual === p ? null : p))
 
   const alternarCapa = (capa: string) =>
-    setCapasOcultas((previas) =>
-      previas.includes(capa) ? previas.filter((c) => c !== capa) : [...previas, capa],
+    setCapasOcultas(previas =>
+      previas.includes(capa) ? previas.filter(c => c !== capa) : [...previas, capa],
     )
 
   const exportar = async (formato: 'svg' | 'png' | 'dxf' | 'lote'): Promise<void> => {
@@ -326,8 +314,8 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
     try {
       if (formato === 'lote') {
         const items = (modulos ?? [])
-          .filter((m) => !m.interactivo)
-          .map((m) => ({ modulo: m.id, params: valoresDe(m, edicion.params) }))
+          .filter(m => !m.interactivo)
+          .map(m => ({ modulo: m.id, params: valoresDe(m, edicion.params) }))
         saveBlob(await descargarLote(items, edicion.lamina), ARCHIVO_LOTE)
       } else if (!dibujo || !modulo) {
         throw new Error('No hay dibujo que exportar.')
@@ -362,16 +350,13 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
       })
       return
     }
-    setPlantillas((ps) => [
-      ...ps,
-      { id: crearId(), nombre, modulo: modulo.id, params: sinDerivadas(valores) },
-    ])
+    setPlantillas(ps => [...ps, { id: crearId(), nombre, modulo: modulo.id, params: sinDerivadas(valores) }])
     setNombrePlantilla('')
     setAviso({ tipo: 'ok', texto: `Plantilla «${nombre}» guardada.` })
   }
 
   const aplicarPlantilla = (p: Plantilla) => {
-    if (!modulos?.some((m) => m.id === p.modulo)) {
+    if (!modulos?.some(m => m.id === p.modulo)) {
       setAviso({
         tipo: 'error',
         texto: `La plantilla «${p.nombre}» es del módulo «${p.modulo}», que no existe en el servidor.`,
@@ -400,7 +385,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
     const imp = importarPlantillaEscritorio(raw)
     const conocidas = imp
       ? Object.keys(imp.params).filter(
-          (k) => Object.hasOwn(modulo.defaults, k) || modulo.campos.some((c) => c.key === k),
+          k => Object.hasOwn(modulo.defaults, k) || modulo.campos.some(c => c.key === k),
         )
       : []
     if (!imp || (conocidas.length === 0 && imp.geom === undefined)) {
@@ -417,7 +402,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
       })
       return
     }
-    const nuevosParams = Object.fromEntries(conocidas.map((k) => [k, imp.params[k]]))
+    const nuevosParams = Object.fromEntries(conocidas.map(k => [k, imp.params[k]]))
     const claves = Object.keys(raw as Record<string, unknown>)
     const trajoLamina = claves.includes('_sheet_enabled') || claves.includes('_sheet_metadata')
     const lamina: Lamina = trajoLamina
@@ -436,8 +421,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
     })
     setAviso({
       tipo: 'ok',
-      texto:
-        conocidas.length > 0 ? 'Plantilla importada.' : 'Se importó la geometría de la plantilla.',
+      texto: conocidas.length > 0 ? 'Plantilla importada.' : 'Se importó la geometría de la plantilla.',
     })
   }
 
@@ -472,7 +456,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
           className="cad-plegar"
           aria-expanded={panelAbierto}
           aria-controls={`${prefijo}-izq`}
-          onClick={() => setPanelAbierto((v) => !v)}
+          onClick={() => setPanelAbierto(v => !v)}
         >
           {panelAbierto ? 'Ocultar módulos y parámetros' : 'Mostrar módulos y parámetros'}
         </button>
@@ -494,7 +478,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
           {modulos !== null && modulo && (
             <>
               <nav aria-label="Módulos" className="cad-modulos">
-                {modulos.map((m) => (
+                {modulos.map(m => (
                   <button
                     key={m.id}
                     type="button"
@@ -509,27 +493,19 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
               {interactivo ? (
                 <>
                   <SapFundacionPanel
-                    onGeom={(g) => fijar({ ...edicion, geom: g }, 'geom')}
+                    onGeom={g => fijar({ ...edicion, geom: g }, 'geom')}
                     geomActual={edicion.geom}
                   />
-                  <div
-                    className="cad-formulario"
-                    role="group"
-                    aria-label={`Parámetros de ${modulo.nombre}`}
-                  >
+                  <div className="cad-formulario" role="group" aria-label={`Parámetros de ${modulo.nombre}`}>
                     <label htmlFor={`${prefijo}-escala`}>Escala de acotado</label>
                     <select
                       id={`${prefijo}-escala`}
                       value={String(valores.escala ?? '1:50')}
-                      onChange={(e) =>
-                        cambiarParams(
-                          modulo.id,
-                          { ...valores, escala: e.target.value },
-                          `p:${modulo.id}`,
-                        )
+                      onChange={e =>
+                        cambiarParams(modulo.id, { ...valores, escala: e.target.value }, `p:${modulo.id}`)
                       }
                     >
-                      {ESCALAS.map((o) => (
+                      {ESCALAS.map(o => (
                         <option key={o} value={o}>
                           {o}
                         </option>
@@ -538,12 +514,8 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                     <CampoEspesor
                       id={`${prefijo}-espesor`}
                       valor={Number(valores.espesor_default ?? 0)}
-                      onElegir={(n) =>
-                        cambiarParams(
-                          modulo.id,
-                          { ...valores, espesor_default: n },
-                          `p:${modulo.id}`,
-                        )
+                      onElegir={n =>
+                        cambiarParams(modulo.id, { ...valores, espesor_default: n }, `p:${modulo.id}`)
                       }
                     />
                   </div>
@@ -552,7 +524,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                 <Formulario
                   modulo={modulo}
                   valores={valores}
-                  onCambio={(nuevos) => cambiarParams(modulo.id, nuevos, `p:${modulo.id}`)}
+                  onCambio={nuevos => cambiarParams(modulo.id, nuevos, `p:${modulo.id}`)}
                 />
               )}
             </>
@@ -565,7 +537,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
           <div className="cad-barra" role="group" aria-label="Herramientas del dibujo">
             <button
               type="button"
-              onClick={() => setAjuste((n) => n + 1)}
+              onClick={() => setAjuste(n => n + 1)}
               title="Ajustar el dibujo a la ventana"
             >
               Ajustar
@@ -573,7 +545,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
             <button
               type="button"
               aria-pressed={medir}
-              onClick={() => setMedir((v) => !v)}
+              onClick={() => setMedir(v => !v)}
               title="Medir distancias con dos clics (Esc cancela el punto en curso)"
             >
               Medir
@@ -627,9 +599,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
               disabled={!dibujo}
               onClick={() => togglePanel('solapes')}
             >
-              {solapes.length > 0
-                ? `Revisar anotaciones (${solapes.length})`
-                : 'Revisar anotaciones'}
+              {solapes.length > 0 ? `Revisar anotaciones (${solapes.length})` : 'Revisar anotaciones'}
             </button>
             <button
               type="button"
@@ -663,10 +633,8 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
             <div id={`${prefijo}-panel`} className="cad-panel">
               {panel === 'capas' && (
                 <section aria-label="Capas">
-                  {capasPresentes.length === 0 && (
-                    <p className="cad-nota">El dibujo no tiene capas.</p>
-                  )}
-                  {capasPresentes.map((capa) => (
+                  {capasPresentes.length === 0 && <p className="cad-nota">El dibujo no tiene capas.</p>}
+                  {capasPresentes.map(capa => (
                     <label key={capa} className="cad-fila-capa">
                       <input
                         type="checkbox"
@@ -686,37 +654,19 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
 
               {panel === 'exportar' && (
                 <section aria-label="Exportar" className="cad-lista-botones">
-                  <button
-                    type="button"
-                    disabled={!dibujo || exportando}
-                    onClick={() => exportar('svg')}
-                  >
+                  <button type="button" disabled={!dibujo || exportando} onClick={() => exportar('svg')}>
                     SVG
                   </button>
-                  <button
-                    type="button"
-                    disabled={!dibujo || exportando}
-                    onClick={() => exportar('png')}
-                  >
+                  <button type="button" disabled={!dibujo || exportando} onClick={() => exportar('png')}>
                     PNG
                   </button>
-                  <button
-                    type="button"
-                    disabled={!dibujo || exportando}
-                    onClick={() => exportar('dxf')}
-                  >
+                  <button type="button" disabled={!dibujo || exportando} onClick={() => exportar('dxf')}>
                     DXF
                   </button>
-                  <button
-                    type="button"
-                    disabled={exportando || !modulos}
-                    onClick={() => exportar('lote')}
-                  >
+                  <button type="button" disabled={exportando || !modulos} onClick={() => exportar('lote')}>
                     Todos los módulos (ZIP de DXF)
                   </button>
-                  <p className="cad-nota">
-                    El ZIP omite Fundación SAP2000, que necesita su geometría.
-                  </p>
+                  <p className="cad-nota">El ZIP omite Fundación SAP2000, que necesita su geometría.</p>
                 </section>
               )}
 
@@ -728,7 +678,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                       id={`${prefijo}-nombre-pl`}
                       type="text"
                       value={nombrePlantilla}
-                      onChange={(e) => setNombrePlantilla(e.target.value)}
+                      onChange={e => setNombrePlantilla(e.target.value)}
                     />
                   </div>
                   <div className="cad-lista-botones">
@@ -749,7 +699,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                     <p className="cad-nota">No hay plantillas guardadas.</p>
                   ) : (
                     <ul className="cad-lista">
-                      {plantillas.map((p) => (
+                      {plantillas.map(p => (
                         <li key={p.id}>
                           <span>
                             {p.nombre} <small>({p.modulo})</small>
@@ -771,7 +721,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                           <button
                             type="button"
                             aria-label={`Borrar plantilla ${p.nombre}`}
-                            onClick={() => setPlantillas((ps) => ps.filter((x) => x.id !== p.id))}
+                            onClick={() => setPlantillas(ps => ps.filter(x => x.id !== p.id))}
                           >
                             Borrar
                           </button>
@@ -854,7 +804,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
       {dialogoLamina && (
         <div
           className="cad-velo"
-          onKeyDown={(e) => {
+          onKeyDown={e => {
             if (e.key === 'Escape') setDialogoLamina(false)
           }}
         >
@@ -871,7 +821,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                 id={`${prefijo}-proyecto`}
                 type="text"
                 value={edicion.lamina.proyecto}
-                onChange={(e) => cambiarLamina({ proyecto: e.target.value }, 'lamina:proyecto')}
+                onChange={e => cambiarLamina({ proyecto: e.target.value }, 'lamina:proyecto')}
               />
             </div>
             <div className="cad-fila-campo">
@@ -880,9 +830,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                 id={`${prefijo}-plano`}
                 type="text"
                 value={edicion.lamina.numero_plano}
-                onChange={(e) =>
-                  cambiarLamina({ numero_plano: e.target.value }, 'lamina:numero_plano')
-                }
+                onChange={e => cambiarLamina({ numero_plano: e.target.value }, 'lamina:numero_plano')}
               />
             </div>
             <div className="cad-fila-campo">
@@ -891,7 +839,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
                 id={`${prefijo}-revision`}
                 type="text"
                 value={edicion.lamina.revision}
-                onChange={(e) => cambiarLamina({ revision: e.target.value }, 'lamina:revision')}
+                onChange={e => cambiarLamina({ revision: e.target.value }, 'lamina:revision')}
               />
             </div>
             <div className="cad-lista-botones">
@@ -904,11 +852,7 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
       )}
 
       {envioAbierto && (
-        <EnvioCadDialog
-          dibujo={dibujo}
-          nombre={modulo?.id ?? ''}
-          onCerrar={() => setEnvioAbierto(false)}
-        />
+        <EnvioCadDialog dibujo={dibujo} nombre={modulo?.id ?? ''} onCerrar={() => setEnvioAbierto(false)} />
       )}
     </div>
   )

@@ -59,7 +59,7 @@ function CampoNumero({
   const [borrador, setBorrador] = useState(textoDe(valor))
 
   useEffect(() => {
-    setBorrador((prev) => (prev.trim() !== '' && Number(prev) === valor ? prev : textoDe(valor)))
+    setBorrador(prev => (prev.trim() !== '' && Number(prev) === valor ? prev : textoDe(valor)))
   }, [valor])
 
   return (
@@ -69,7 +69,7 @@ function CampoNumero({
       min="0"
       step="any"
       value={borrador}
-      onChange={(e) => {
+      onChange={e => {
         const t = e.target.value
         setBorrador(t)
         const n = Number(t)
@@ -117,7 +117,7 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
       const c = await credencialesOAviso()
       if (!c) return
       const r = await gruposSap(c)
-      if (vivoRef.current) setGrupos(r.grupos.filter((g) => g.n_shells > 0))
+      if (vivoRef.current) setGrupos(r.grupos.filter(g => g.n_shells > 0))
     } catch (e) {
       if (vivoRef.current) setMensaje(mensajeDe(e))
     }
@@ -139,7 +139,7 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
       const st = await estadoFundacion(c, job)
       if (!vivoRef.current || jobRef.current?.job !== job) return
       if (st.estado === 'en_curso') {
-        setTrabajo((t) => (t && t.job === job ? { ...t, estado: st } : t))
+        setTrabajo(t => (t && t.job === job ? { ...t, estado: st } : t))
         programarSondeo(c, job)
         return
       }
@@ -190,13 +190,13 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
   async function cancelar() {
     const j = jobRef.current
     if (!j) return
-    setTrabajo((t) => (t ? { ...t, cancelando: true } : t))
+    setTrabajo(t => (t ? { ...t, cancelando: true } : t))
     try {
       await cancelarFundacion(j.creds, j.job)
     } catch (e) {
       if (!vivoRef.current) return
       setMensaje(mensajeDe(e))
-      setTrabajo((t) => (t ? { ...t, cancelando: false } : t))
+      setTrabajo(t => (t ? { ...t, cancelando: false } : t))
     }
   }
 
@@ -215,10 +215,8 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
   }
 
   function alternarIncluir(i: number) {
-    const nuevas = incl.includes(i)
-      ? incl.filter((k) => k !== i)
-      : [...incl, i].sort((a, b) => a - b)
-    aplicar((g) => g, nuevas)
+    const nuevas = incl.includes(i) ? incl.filter(k => k !== i) : [...incl, i].sort((a, b) => a - b)
+    aplicar(g => g, nuevas)
   }
 
   const hechas = trabajo?.estado?.hechas ?? 0
@@ -232,12 +230,10 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
         <button type="button" onClick={() => void leerGrupos()} disabled={trabajo !== null}>
           Leer grupos
         </button>
-        {grupos !== null && grupos.length === 0 && (
-          <p>No hay grupos con shells en el modelo SAP2000.</p>
-        )}
+        {grupos !== null && grupos.length === 0 && <p>No hay grupos con shells en el modelo SAP2000.</p>}
         {grupos !== null && grupos.length > 0 && (
           <ul>
-            {grupos.map((g) => (
+            {grupos.map(g => (
               <li key={g.nombre}>
                 <span>
                   {g.nombre} ({g.n_shells} shells)
@@ -265,9 +261,7 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
         <section className="sap-fund-progreso" aria-label="Lectura de la fundación">
           <p>Grupo: {trabajo.grupo}</p>
           <p role="status">
-            {trabajo.estado
-              ? `Etapa: ${trabajo.estado.etapa || '…'}`
-              : 'Iniciando la lectura en SAP2000…'}
+            {trabajo.estado ? `Etapa: ${trabajo.estado.etapa || '…'}` : 'Iniciando la lectura en SAP2000…'}
           </p>
           <div
             className="sap-fund-barra-fondo"
@@ -283,11 +277,7 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
           <p className="sap-fund-cifras">
             {hechas} / {total} · transcurrido {Math.round(trabajo.estado?.transcurrido_s ?? 0)} s
           </p>
-          <button
-            type="button"
-            onClick={() => void cancelar()}
-            disabled={!trabajo.job || trabajo.cancelando}
-          >
+          <button type="button" onClick={() => void cancelar()} disabled={!trabajo.job || trabajo.cancelando}>
             Cancelar
           </button>
         </section>
@@ -309,15 +299,15 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
               >
                 <div className="sap-fund-cab">
                   <label>
-                    <input type="checkbox" checked={incluida} onChange={() => alternarIncluir(i)} />{' '}
-                    Incluir {z.nombre}
+                    <input type="checkbox" checked={incluida} onChange={() => alternarIncluir(i)} /> Incluir{' '}
+                    {z.nombre}
                   </label>
                   <label>
                     Espesor (mm){' '}
                     <CampoNumero
                       etiqueta={`Espesor de ${z.nombre} (mm)`}
                       valor={espesor}
-                      onCambio={(mm) => aplicar((g) => setEspesorZapata(g, i, mm))}
+                      onCambio={mm => aplicar(g => setEspesorZapata(g, i, mm))}
                     />
                   </label>
                 </div>
@@ -346,14 +336,14 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
                             <CampoNumero
                               etiqueta={`Largo del pedestal ${p.frame}`}
                               valor={p.largo}
-                              onCambio={(v) => aplicar((g) => setPedestal(g, i, j, { largo: v }))}
+                              onCambio={v => aplicar(g => setPedestal(g, i, j, { largo: v }))}
                             />
                           </td>
                           <td>
                             <CampoNumero
                               etiqueta={`Ancho del pedestal ${p.frame}`}
                               valor={p.ancho}
-                              onCambio={(v) => aplicar((g) => setPedestal(g, i, j, { ancho: v }))}
+                              onCambio={v => aplicar(g => setPedestal(g, i, j, { ancho: v }))}
                             />
                           </td>
                           <td>
@@ -361,10 +351,8 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
                               type="checkbox"
                               aria-label={`Largo en X del pedestal ${p.frame}`}
                               checked={p.largo_en_x}
-                              onChange={(e) =>
-                                aplicar((g) =>
-                                  setPedestal(g, i, j, { largo_en_x: e.target.checked }),
-                                )
+                              onChange={e =>
+                                aplicar(g => setPedestal(g, i, j, { largo_en_x: e.target.checked }))
                               }
                             />
                           </td>
@@ -379,7 +367,7 @@ export default function SapFundacionPanel({ onGeom, geomActual }: Props) {
                             <button
                               type="button"
                               aria-label={`Quitar pedestal ${p.frame}`}
-                              onClick={() => aplicar((g) => quitarPedestal(g, i, j))}
+                              onClick={() => aplicar(g => quitarPedestal(g, i, j))}
                             >
                               Quitar
                             </button>

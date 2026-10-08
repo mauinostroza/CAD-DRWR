@@ -83,7 +83,7 @@ function DialogoEnvio({
     puenteCtrlRef.current = ctrl
     setPuente({ tipo: 'comprobando' })
     obtenerCredenciales()
-      .then(async (c) => {
+      .then(async c => {
         if (ctrl.signal.aborted) return
         if (c.source === 'none') {
           credsRef.current = null
@@ -145,7 +145,7 @@ function DialogoEnvio({
       const resumen = await enviarDibujo(creds, dibujo, {
         ubicarConClic: conUbicacion,
         signal: ctrl.signal,
-        onEstado: (estado) => {
+        onEstado: estado => {
           faseActual = estado.fase
           if (!ctrl.signal.aborted) setEnvio({ tipo: 'en_curso', estado })
         },
@@ -193,8 +193,7 @@ function DialogoEnvio({
     }
   }
 
-  const hechas =
-    envio.tipo === 'en_curso' ? envio.estado.hechas : envio.tipo === 'listo' ? total : 0
+  const hechas = envio.tipo === 'en_curso' ? envio.estado.hechas : envio.tipo === 'listo' ? total : 0
   const pct = total > 0 ? Math.round((hechas / total) * 100) : envio.tipo === 'listo' ? 100 : 0
 
   return (
@@ -249,7 +248,7 @@ function DialogoEnvio({
               type="checkbox"
               checked={ubicar}
               disabled={enCurso || puente.tipo !== 'listo'}
-              onChange={(e) => setUbicar(e.target.checked)}
+              onChange={e => setUbicar(e.target.checked)}
             />{' '}
             Ubicar con clic
           </label>
@@ -260,8 +259,8 @@ function DialogoEnvio({
           <section className="envio-cad-progreso" aria-label="Progreso del envío">
             {enEspera ? (
               <p className="envio-cad-espera" role="status">
-                Haga clic en la ventana de ZWCAD/AutoCAD para indicar el punto de inserción (Esc en
-                el CAD cancela).
+                Haga clic en la ventana de ZWCAD/AutoCAD para indicar el punto de inserción (Esc en el CAD
+                cancela).
               </p>
             ) : (
               <p role="status">{envio.estado.mensaje}</p>
@@ -323,7 +322,7 @@ function DialogoEnvio({
                     </tr>
                   </thead>
                   <tbody>
-                    {envio.resumen.errores.slice(0, MAX_ERRORES_VISIBLES).map((err) => (
+                    {envio.resumen.errores.slice(0, MAX_ERRORES_VISIBLES).map(err => (
                       <tr key={`${err.indice}-${err.motivo}`}>
                         <td>{err.indice}</td>
                         <td>{err.tipo}</td>

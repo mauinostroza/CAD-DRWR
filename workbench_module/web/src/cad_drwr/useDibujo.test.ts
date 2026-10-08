@@ -1,8 +1,10 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { pedirDibujo, type DibujoRespuesta } from './api'
 import { CACHE_MAX, useDibujo } from './useDibujo'
 import type { Lamina, Params } from './tipos'
+
+afterEach(cleanup)
 
 vi.mock('./api', () => ({ pedirDibujo: vi.fn() }))
 
@@ -42,10 +44,9 @@ afterEach(() => {
 
 describe('useDibujo', () => {
   it('aplica un debounce de 150 ms y envía los parámetros finales', async () => {
-    const { result, rerender } = renderHook(
-      ({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA),
-      { initialProps: { p: { B: 440 } } },
-    )
+    const { result, rerender } = renderHook(({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA), {
+      initialProps: { p: { B: 440 } },
+    })
     expect(result.current.cargando).toBe(true)
 
     rerender({ p: { B: 450 } })
@@ -81,10 +82,9 @@ describe('useDibujo', () => {
   })
 
   it('reutiliza la caché al volver a unos parámetros ya calculados', async () => {
-    const { result, rerender } = renderHook(
-      ({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA),
-      { initialProps: { p: { B: 440 } } },
-    )
+    const { result, rerender } = renderHook(({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA), {
+      initialProps: { p: { B: 440 } },
+    })
     await avanzar(150)
     rerender({ p: { B: 500 } })
     await avanzar(150)
@@ -126,10 +126,9 @@ describe('useDibujo', () => {
           rechazar = rej
         }),
     )
-    const { result, rerender } = renderHook(
-      ({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA),
-      { initialProps: { p: { B: 440 } } },
-    )
+    const { result, rerender } = renderHook(({ p }: { p: Params }) => useDibujo('placa_base', p, LAMINA), {
+      initialProps: { p: { B: 440 } },
+    })
     await avanzar(150)
     expect(result.current.dibujo?.hash).toBe('a')
 

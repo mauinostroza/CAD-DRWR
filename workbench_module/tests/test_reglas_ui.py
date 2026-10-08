@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 """Reglas de interfaz (sin Qt) frente al golden generado desde el ORIGINAL.
 
 Golden: backend/motor_calculo/cad_drwr/golden/reglas_ui.json
 (scripts/golden_reglas_ui.py, con QT_QPA_PLATFORM=offscreen).
 """
+
 import json
 import os
 import sys
@@ -19,10 +19,11 @@ for _p in (WORKBENCH, SCRIPTS):
 
 from backend.motor_calculo.cad_drwr.generators.data import factor_escala  # noqa: E402
 from backend.motor_calculo.cad_drwr.generators.reglas_ui import (  # noqa: E402
-    autollenar_ui, habilitados)
+    autollenar_ui,
+    habilitados,
+)
 
-GOLDEN = os.path.join(WORKBENCH, "backend", "motor_calculo", "cad_drwr",
-                      "golden", "reglas_ui.json")
+GOLDEN = os.path.join(WORKBENCH, "backend", "motor_calculo", "cad_drwr", "golden", "reglas_ui.json")
 
 with open(GOLDEN, encoding="utf-8") as _fh:
     CASOS = json.load(_fh)
@@ -80,8 +81,11 @@ def test_autollenar_solo_devuelve_cambios(caso):
         assert not (
             clave in con_cambio
             and type(con_cambio[clave]) is type(val)
-            and (con_cambio[clave] == val if not isinstance(val, float)
-                 else abs(con_cambio[clave] - val) <= TOL)
+            and (
+                con_cambio[clave] == val
+                if not isinstance(val, float)
+                else abs(con_cambio[clave] - val) <= TOL
+            )
         ), f"{clave} no cambia y no debería devolverse"
 
 

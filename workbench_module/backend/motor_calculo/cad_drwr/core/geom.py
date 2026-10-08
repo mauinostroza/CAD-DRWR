@@ -17,6 +17,7 @@ TOL = 1e-9
 
 # ------------------------------------------------------------- primitivas ---
 
+
 def pol(p: PT, ang_deg: float, dist: float) -> PT:
     a = math.radians(ang_deg)
     return (p[0] + dist * math.cos(a), p[1] + dist * math.sin(a))
@@ -33,8 +34,7 @@ def dist(p1: PT, p2: PT) -> float:
 def rot(p: PT, deg: float, about: PT = (0.0, 0.0)) -> PT:
     a = math.radians(deg)
     dx, dy = p[0] - about[0], p[1] - about[1]
-    return (about[0] + dx * math.cos(a) - dy * math.sin(a),
-            about[1] + dx * math.sin(a) + dy * math.cos(a))
+    return (about[0] + dx * math.cos(a) - dy * math.sin(a), about[1] + dx * math.sin(a) + dy * math.cos(a))
 
 
 def line_x(x: float, y1: float, y2: float, layer=ir.L_EJE) -> Line:
@@ -45,23 +45,21 @@ def line_y(y: float, x1: float, x2: float, layer=ir.L_EJE) -> Line:
     return Line((x1, y), (x2, y), layer)
 
 
-def rect(x0: float, y0: float, x1: float, y1: float,
-         layer=ir.L_CONC, closed=True) -> Poly:
-    return Poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
-                closed=closed, layer=layer)
+def rect(x0: float, y0: float, x1: float, y1: float, layer=ir.L_CONC, closed=True) -> Poly:
+    return Poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=closed, layer=layer)
 
 
 # ---------------------------------------------------------------- hachurado ---
 
-def hatch_poly(pts, spacing: float, angle_deg: float = 45.0,
-               layer=ir.L_HACH) -> list:
+
+def hatch_poly(pts, spacing: float, angle_deg: float = 45.0, layer=ir.L_HACH) -> list:
     """Hachurado por líneas paralelas recortadas contra un polígono simple.
     (Recorte por pares de intersecciones; funciona también en no convexos)."""
     out = []
     if len(pts) < 3 or spacing <= 0:
         return out
     a = math.radians(angle_deg)
-    ca, sa = math.cos(-a), math.sin(-a)          # rota el polígono -angle
+    ca, sa = math.cos(-a), math.sin(-a)  # rota el polígono -angle
     rp = [(p[0] * ca - p[1] * sa, p[0] * sa + p[1] * ca) for p in pts]
     ys = [p[1] for p in rp]
     y0, y1 = min(ys), max(ys)
@@ -91,8 +89,8 @@ def hatch_poly(pts, spacing: float, angle_deg: float = 45.0,
 
 # --------------------------------------------------------- barras dobladas ---
 
-def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
-             width: float = 0.0):
+
+def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO, width: float = 0.0):
     """Dibuja una barra doblada como línea central con arcos de doblez.
 
     pts  : vértices del recorrido (esquinas de la barra, línea central)
@@ -142,8 +140,8 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
         wx, wy = (p_next[0] - v[0]) / l2, (p_next[1] - v[1]) / l2
         cr = ux * wy - uy * wx
         dt = ux * wx + uy * wy
-        th = math.atan2(cr, dt)                      # ángulo con signo
-        if abs(th) < math.radians(0.5):              # prácticamente recta
+        th = math.atan2(cr, dt)  # ángulo con signo
+        if abs(th) < math.radians(0.5):  # prácticamente recta
             continue
         if abs(th) >= math.radians(179.0):
             raise ValueError("doblez casi de 180 grados no es resoluble")
@@ -158,19 +156,20 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
         if used > available + TOL:
             raise ValueError(
                 "el radio solicitado no cabe en el tramo "
-                f"{i + 1}: requiere {used:.3f} mm y hay {available:.3f} mm")
+                f"{i + 1}: requiere {used:.3f} mm y hay {available:.3f} mm"
+            )
 
     ents: list = []
     dev = 0.0
-    cur = pts[0]                       # punto actual del recorrido recortado
+    cur = pts[0]  # punto actual del recorrido recortado
     for i, ux, uy, wx, wy, cr, th, T in corners:
         v = pts[i]
         t_in = (v[0] - T * ux, v[1] - T * uy)
         t_out = (v[0] + T * wx, v[1] + T * wy)
         # centro: a Rm del lado interior del doblez
-        if cr > 0:    # giro antihorario -> centro a la izquierda de u
+        if cr > 0:  # giro antihorario -> centro a la izquierda de u
             nx, ny = -uy, ux
-        else:         # horario -> centro a la derecha de u
+        else:  # horario -> centro a la derecha de u
             nx, ny = uy, -ux
         center = (t_in[0] + Rm_i * nx, t_in[1] + Rm_i * ny)
 
@@ -189,6 +188,7 @@ def poly_bar(pts, d: float, R_in: float, layer=ir.L_ACERO,
 
 # ------------------------------------------------------------- símbolos ---
 
+
 def arrow(tip: PT, ang_deg: float, size: float, layer=ir.L_ACOT) -> Filled:
     """Cabeza de flecha rellena; `tip` es la punta, apunta hacia ang_deg."""
     b1 = pol(tip, ang_deg + 180 - 12, size)
@@ -198,18 +198,15 @@ def arrow(tip: PT, ang_deg: float, size: float, layer=ir.L_ACOT) -> Filled:
 
 def tick(p: PT, ang_deg: float, size: float, layer=ir.L_ACOT) -> Line:
     """Marca oblicua (tick) alternativa para cotas."""
-    return Line(pol(p, ang_deg + 90 + 45, size / 2),
-                pol(p, ang_deg + 90 - 45, size / 2), layer)
+    return Line(pol(p, ang_deg + 90 + 45, size / 2), pol(p, ang_deg + 90 - 45, size / 2), layer)
 
 
 def level_symbol(p: PT, h: float, txt: str, layer=ir.L_TXT) -> list:
     """Símbolo de nivel (triángulo + texto), p = punto en el nivel."""
     s = h * 0.9
-    tri = Filled([(p[0] - s, p[1] + s), (p[0] + s, p[1] + s), (p[0], p[1])],
-                 layer)
+    tri = Filled([(p[0] - s, p[1] + s), (p[0] + s, p[1] + s), (p[0], p[1])], layer)
     l1 = Line((p[0] - 3 * s, p[1] + s), (p[0] + 3.2 * s, p[1] + s), layer)
-    t1 = Text((p[0] - 3 * s, p[1] + s + h * 0.35), txt, h, 0, layer,
-              ha="l", va="b")
+    t1 = Text((p[0] - 3 * s, p[1] + s + h * 0.35), txt, h, 0, layer, ha="l", va="b")
     return [tri, l1, t1]
 
 
@@ -234,9 +231,7 @@ def weld_symbol(tip: PT, elbow: PT, h: float, layer=ir.L_SOLD) -> list:
     t = h * 0.9
     for dx in (0.9 * h, 2.2 * h):
         base_x = elbow[0] + side * dx
-        out.append(Filled([(base_x, elbow[1]),
-                           (base_x + side * t, elbow[1]),
-                           (base_x, elbow[1] - t)], layer))
+        out.append(Filled([(base_x, elbow[1]), (base_x + side * t, elbow[1]), (base_x, elbow[1] - t)], layer))
     return out
 
 
@@ -258,7 +253,7 @@ def stirrup_pts(b: float, h: float, d: float, R_in: float) -> list:
         raise ValueError("las dimensiones del estribo deben ser positivas")
     if d <= 0 or R_in < 0:
         raise ValueError("el diámetro y radio del estribo no son válidos")
-    Lh = max(6.0 * d, 75.0)                    # largo de gancho (6d >= 75)
+    Lh = max(6.0 * d, 75.0)  # largo de gancho (6d >= 75)
     Rm = R_in + d / 2.0
     T135 = Rm * math.tan(math.radians(135 / 2.0))
     if h < 2 * Rm - TOL:
@@ -274,9 +269,15 @@ def stirrup_pts(b: float, h: float, d: float, R_in: float) -> list:
         raise ValueError("altura insuficiente para los ganchos de 135 grados")
     v_top = (b + T135 - Rm, h)
     v_right = (b, h + T135 - Rm)
-    return [(v_top[0] - k * tail, v_top[1] - k * tail), v_top,
-            (0, h), (0, 0), (b, 0), v_right,
-            (v_right[0] - k * tail, v_right[1] - k * tail)]
+    return [
+        (v_top[0] - k * tail, v_top[1] - k * tail),
+        v_top,
+        (0, h),
+        (0, 0),
+        (b, 0),
+        v_right,
+        (v_right[0] - k * tail, v_right[1] - k * tail),
+    ]
 
 
 def corte_poligono(pts, eje: str, valor: float) -> list:
@@ -312,6 +313,7 @@ def corte_poligono(pts, eje: str, valor: float) -> list:
 
 # ------------------------------------------------ contornos de malla (SAP2000) --
 
+
 def agrupar_por_adyacencia(listas_nombres: list) -> list:
     """Agrupa shells en componentes conexas por adyacencia de arista.
 
@@ -325,8 +327,7 @@ def agrupar_por_adyacencia(listas_nombres: list) -> list:
     aristas = []
     for nombres in listas_nombres:
         k = len(nombres)
-        aristas.append({frozenset((nombres[i], nombres[(i + 1) % k]))
-                        for i in range(k)})
+        aristas.append({frozenset((nombres[i], nombres[(i + 1) % k])) for i in range(k)})
 
     padre = list(range(n))
 
@@ -363,6 +364,7 @@ def contorno_exterior(listas_nombres: list) -> list:
     de grado 2 — un solo lazo cerrado, sin huecos) y devuelve el contorno
     como lista ordenada de nombres de joint."""
     from collections import Counter, defaultdict
+
     conteo = Counter()
     for nombres in listas_nombres:
         k = len(nombres)
@@ -424,8 +426,7 @@ def simplificar_colineales(pts: list, tol: float = 2.0) -> list:
     return out
 
 
-def thread_zigzag(p0: PT, length: float, w: float, pitch: float,
-                  layer=ir.L_ACERO) -> list:
+def thread_zigzag(p0: PT, length: float, w: float, pitch: float, layer=ir.L_ACERO) -> list:
     """Rosca esquemática de perno: zigzag a lo largo de +Y desde p0."""
     pts = [p0]
     y = p0[1]

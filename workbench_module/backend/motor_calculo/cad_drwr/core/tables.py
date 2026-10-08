@@ -17,18 +17,23 @@ def peso_barra(d_mm: float) -> float:
     return d_mm * d_mm / 162.0
 
 
-def fila_barra(marca: str, shape_code: str, shape_pts, d: float, R_in: float,
-               qty: int, layer=ir.L_ACERO):
+def fila_barra(marca: str, shape_code: str, shape_pts, d: float, R_in: float, qty: int, layer=ir.L_ACERO):
     """Genera la fila del cuadro + entidades del boceto de forma.
     Devuelve (celdas_texto, sketch_ents_relativas, largo_mm)."""
     ents, dev = poly_bar(shape_pts, d, R_in, layer=layer)
     pu = peso_barra(d)
-    celdas = [marca, "", f"Ø{d}", str(qty), f"{dev / 1000.0:.2f}",
-              f"{pu:.2f}", f"{pu * qty * dev / 1000.0:.2f}"]
-    legs = [f"{chr(65+i)}={math.dist(a,b):.1f}" for i, (a,b)
-            in enumerate(zip(shape_pts, shape_pts[1:]))]
+    celdas = [
+        marca,
+        "",
+        f"Ø{d}",
+        str(qty),
+        f"{dev / 1000.0:.2f}",
+        f"{pu:.2f}",
+        f"{pu * qty * dev / 1000.0:.2f}",
+    ]
+    legs = [f"{chr(65 + i)}={math.dist(a, b):.1f}" for i, (a, b) in enumerate(zip(shape_pts, shape_pts[1:]))]
     details = [f"{shape_code}; R interior={R_in:g}"]
-    details.extend("; ".join(legs[i:i+3]) for i in range(0, len(legs), 3))
+    details.extend("; ".join(legs[i : i + 3]) for i in range(0, len(legs), 3))
     celdas.append("\n".join(details))
     # normaliza boceto alrededor de su centro, con origen (0,0)
     xs = [p[0] for e in ents for p in _pts_of(e)]
@@ -55,6 +60,7 @@ def _translate_ents(ents, dx, dy):
     out = []
     for e in ents:
         import copy
+
         e2 = copy.copy(e)
         if hasattr(e, "p1"):
             e2.p1 = (e.p1[0] + dx, e.p1[1] + dy)
@@ -67,8 +73,9 @@ def _translate_ents(ents, dx, dy):
     return out
 
 
-def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
-                    title="CUADRO DE DESPIECE DE BARRAS") -> ir.Table:
+def cuadro_despiece(
+    pos, f: float, filas, total_kg: float = None, title="CUADRO DE DESPIECE DE BARRAS"
+) -> ir.Table:
     """filas: lista de (celdas, sketch) ya calculadas."""
     col_w = [w * f for w in COL_W]
     rows = []
@@ -79,8 +86,16 @@ def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
         if sketch:
             sketches[(i, 1)] = sketch
     line_count = max((len(str(cell).splitlines()) for row in rows for cell in row), default=1)
-    t = ir.Table(pos=pos, col_w=col_w, row_h=max(15.0, (line_count+1)*6.25) * f, header=COLS,
-                 rows=rows, title=title, h_row=5.0 * f, sketches=sketches)
+    t = ir.Table(
+        pos=pos,
+        col_w=col_w,
+        row_h=max(15.0, (line_count + 1) * 6.25) * f,
+        header=COLS,
+        rows=rows,
+        title=title,
+        h_row=5.0 * f,
+        sketches=sketches,
+    )
     if total_kg is not None:
         total_row = [""] * len(COLS)
         total_row[6] = f"Σ {total_kg:.1f}"
@@ -90,18 +105,24 @@ def cuadro_despiece(pos, f: float, filas, total_kg: float = None,
 
 def tabla_pernos(pos, f: float, datos, title="CUADRO DE PERNOS DE ANCLAJE"):
     """datos: lista de listas de texto. Encabezados fijos."""
-    headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY. PLACA\n(mm)", "MATERIAL",
-               "TUERCA /\nARANDELA"]
+    headers = ["Nº", "Ø (mm)", "EMPOTR.\n(mm)", "PROY. PLACA\n(mm)", "MATERIAL", "TUERCA /\nARANDELA"]
     col_w = [w * f for w in [20, 24, 34, 30, 38, 56]]
-    return ir.Table(pos=pos, col_w=col_w, row_h=15.0 * f, header=headers,
-                    rows=datos, title=title, h_row=5.0 * f)
+    return ir.Table(
+        pos=pos, col_w=col_w, row_h=15.0 * f, header=headers, rows=datos, title=title, h_row=5.0 * f
+    )
 
 
 def tabla_perno_pg(pos, f: float, p: dict) -> ir.Table:
     """Tabla de fabricación vertical para el perno recto tipo PG."""
     spec = p if isinstance(p, PGSpec) else pg_spec_from_params(p)
     rows = pg_table_rows(spec)
-    return ir.Table(pos=pos, col_w=[58 * f, 13 * f, 22 * f],
-                    row_h=10.0 * f, rows=rows, title='PERNO TIPO "PG"',
-                    h_row=3.0 * f, title_boxed=True,
-                    col_align=["l", "c", "c"])
+    return ir.Table(
+        pos=pos,
+        col_w=[58 * f, 13 * f, 22 * f],
+        row_h=10.0 * f,
+        rows=rows,
+        title='PERNO TIPO "PG"',
+        h_row=3.0 * f,
+        title_boxed=True,
+        col_align=["l", "c", "c"],
+    )

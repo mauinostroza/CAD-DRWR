@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Paridad de fundaciones: el destino debe reproducir el golden del ORIGINAL."""
+
 import json
 import os
 import sys
@@ -13,13 +13,13 @@ for _p in (WORKBENCH, SCRIPTS):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from golden_dump import dump  # noqa: E402
 from backend.motor_calculo.cad_drwr.generators.foundation_sap import (  # noqa: E402
-    build_foundation)
+    build_foundation,
+)
 from backend.motor_calculo.cad_drwr.sap_geom import FundacionGeom  # noqa: E402
+from backend.motor_calculo.cad_drwr.volcado import dump  # noqa: E402
 
-GOLDEN = os.path.join(WORKBENCH, "backend", "motor_calculo", "cad_drwr",
-                      "golden", "fundacion_sap.json")
+GOLDEN = os.path.join(WORKBENCH, "backend", "motor_calculo", "cad_drwr", "golden", "fundacion_sap.json")
 
 with open(GOLDEN, encoding="utf-8") as _fh:
     CASOS = json.load(_fh)

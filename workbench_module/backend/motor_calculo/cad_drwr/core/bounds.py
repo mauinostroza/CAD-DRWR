@@ -7,7 +7,7 @@ La estimación de texto es deliberadamente conservadora y no depende de Qt.
 
 import math
 
-from .ir import (Arc, Circle, Dim, Filled, Leader, Line, Poly, Table, Text)
+from .ir import Arc, Circle, Dim, Filled, Leader, Line, Poly, Table, Text
 from .dims import dim_parts
 
 
@@ -37,8 +37,7 @@ def _text_bounds(e: Text):
     corners = []
     for x, y in ((x0, y0), (x0, y1), (x1, y0), (x1, y1)):
         dx, dy = x - e.pos[0], y - e.pos[1]
-        corners.append((e.pos[0] + dx * ca - dy * sa,
-                        e.pos[1] + dx * sa + dy * ca))
+        corners.append((e.pos[0] + dx * ca - dy * sa, e.pos[1] + dx * sa + dy * ca))
     return _from_points(corners)
 
 
@@ -61,16 +60,14 @@ def entity_bounds(e, dim_text_height=3.0):
     if isinstance(e, Dim):
         # Usa la misma descomposición que el visor: incluye líneas de
         # extensión, texto rotado y las flechas exteriores de cotas estrechas.
-        return union_bounds(entity_bounds(part, dim_text_height)
-                            for part in dim_parts(e, dim_text_height))
+        return union_bounds(entity_bounds(part, dim_text_height) for part in dim_parts(e, dim_text_height))
     if isinstance(e, Leader):
         end = (e.elbow[0] + e.side * e.shelf, e.elbow[1])
-        label = Text((end[0], end[1] + e.h * 0.3), e.s, e.h,
-                     ha="l" if e.side > 0 else "r", va="b")
-        return union_bounds([_from_points([e.tip, e.elbow, end]),
-                             _text_bounds(label)])
+        label = Text((end[0], end[1] + e.h * 0.3), e.s, e.h, ha="l" if e.side > 0 else "r", va="b")
+        return union_bounds([_from_points([e.tip, e.elbow, end]), _text_bounds(label)])
     if isinstance(e, Table):
         from .annotations import table_parts
+
         return union_bounds(entity_bounds(part) for part in table_parts(e))
     return None
 
@@ -79,8 +76,12 @@ def union_bounds(boxes):
     boxes = [b for b in boxes if b is not None]
     if not boxes:
         return None
-    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
-            max(b[2] for b in boxes), max(b[3] for b in boxes))
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
+    )
 
 
 def drawing_bounds(drawing):

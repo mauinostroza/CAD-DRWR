@@ -11,16 +11,22 @@ def leader_parts(e):
     end = (e.elbow[0] + e.side * e.shelf, e.elbow[1])
     parts = [ir.Line(e.tip, e.elbow, e.layer)]
     if e.tip != e.elbow:
-        angle = math.degrees(math.atan2(e.tip[1] - e.elbow[1],
-                                        e.tip[0] - e.elbow[0]))
+        angle = math.degrees(math.atan2(e.tip[1] - e.elbow[1], e.tip[0] - e.elbow[0]))
         parts.append(arrow(e.tip, angle, 0.85 * e.h, e.layer))
     if e.shelf:
         parts.append(ir.Line(e.elbow, end, e.layer))
     lines = str(e.s).splitlines() or [""]
     for i, line in enumerate(lines):
-        parts.append(ir.Text((end[0], end[1] + (0.3 + (len(lines) - 1 - i) * 1.25) * e.h),
-                             line, e.h, layer=e.layer,
-                             ha="l" if e.side > 0 else "r", va="b"))
+        parts.append(
+            ir.Text(
+                (end[0], end[1] + (0.3 + (len(lines) - 1 - i) * 1.25) * e.h),
+                line,
+                e.h,
+                layer=e.layer,
+                ha="l" if e.side > 0 else "r",
+                va="b",
+            )
+        )
     return parts
 
 
@@ -31,8 +37,7 @@ def _sketch_points(e):
         return e.pts
     if isinstance(e, (ir.Arc, ir.Circle)):
         # Cota conservadora: incluye el radio, nunca sólo el centro.
-        return [(e.c[0] - e.r, e.c[1] - e.r),
-                (e.c[0] + e.r, e.c[1] + e.r)]
+        return [(e.c[0] - e.r, e.c[1] - e.r), (e.c[0] + e.r, e.c[1] + e.r)]
     return []
 
 
@@ -42,8 +47,7 @@ def fit_sketch(ents, cx, cy, width, height):
         return []
     x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
     y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
-    scale = min(width / max(x1 - x0, 1e-6),
-                height / max(y1 - y0, 1e-6), 50.0)
+    scale = min(width / max(x1 - x0, 1e-6), height / max(y1 - y0, 1e-6), 50.0)
     mx, my = (x0 + x1) / 2, (y0 + y1) / 2
 
     def point(p):
@@ -102,17 +106,14 @@ def table_parts(tb):
         for col, w in enumerate(tb.col_w):
             cy = top - tb.row_h / 2
             if (row, col) in tb.sketches:
-                out.extend(fit_sketch(tb.sketches[(row, col)], x + w / 2, cy,
-                                      w * 0.8, tb.row_h * 0.62))
+                out.extend(fit_sketch(tb.sketches[(row, col)], x + w / 2, cy, w * 0.8, tb.row_h * 0.62))
             elif col < len(values) and values[col]:
                 align = tb.col_align[col] if col < len(tb.col_align) else "c"
-                tx = x + (0.5 * th if align == "l" else
-                          w - 0.5 * th if align == "r" else w / 2)
+                tx = x + (0.5 * th if align == "l" else w - 0.5 * th if align == "r" else w / 2)
                 lines = str(values[col]).split("\n")
                 for i, text in enumerate(lines):
                     ty = cy + ((len(lines) - 1) / 2 - i) * 1.25 * th
-                    out.append(ir.Text((tx, ty), text, th, layer=ir.L_TABLA,
-                                       ha=align))
+                    out.append(ir.Text((tx, ty), text, th, layer=ir.L_TABLA, ha=align))
             x += w
     return out
 

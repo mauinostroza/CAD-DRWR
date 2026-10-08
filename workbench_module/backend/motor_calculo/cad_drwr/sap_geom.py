@@ -25,6 +25,7 @@ class Pedestal:
 
 # ------------------------------------------------------- modelo de datos --
 
+
 @dataclass
 class AreaGeom:
     nombre: str
@@ -39,6 +40,7 @@ class AreaGeom:
 class Zapata:
     """Una fundación física (componente conexa de shells) dentro de un
     grupo de SAP2000."""
+
     nombre: str
     areas: List[AreaGeom] = field(default_factory=list)
     contorno: List[Tuple[float, float]] = field(default_factory=list)
@@ -48,18 +50,28 @@ class Zapata:
         return {
             "nombre": self.nombre,
             "areas": [
-                {"nombre": a.nombre, "seccion": a.seccion,
-                 "espesor": a.espesor, "pts_nombres": list(a.pts_nombres),
-                 "pts": [list(p) for p in a.pts],
-                 "pts_malla": list(a.pts_malla)}
+                {
+                    "nombre": a.nombre,
+                    "seccion": a.seccion,
+                    "espesor": a.espesor,
+                    "pts_nombres": list(a.pts_nombres),
+                    "pts": [list(p) for p in a.pts],
+                    "pts_malla": list(a.pts_malla),
+                }
                 for a in self.areas
             ],
             "contorno": [list(p) for p in self.contorno],
             "pedestales": [
-                {"frame": pd.frame, "largo": pd.largo, "ancho": pd.ancho,
-                 "largo_en_x": pd.largo_en_x, "centro": list(pd.centro),
-                 "punto_pie": pd.punto_pie, "aproximado": pd.aproximado,
-                 "motivo_aviso": pd.motivo_aviso}
+                {
+                    "frame": pd.frame,
+                    "largo": pd.largo,
+                    "ancho": pd.ancho,
+                    "largo_en_x": pd.largo_en_x,
+                    "centro": list(pd.centro),
+                    "punto_pie": pd.punto_pie,
+                    "aproximado": pd.aproximado,
+                    "motivo_aviso": pd.motivo_aviso,
+                }
                 for pd in self.pedestales
             ],
         }
@@ -69,18 +81,28 @@ class Zapata:
         return Zapata(
             nombre=d.get("nombre", ""),
             areas=[
-                AreaGeom(a["nombre"], a["seccion"], a.get("espesor"),
-                        list(a.get("pts_nombres", [])),
-                        [tuple(p) for p in a["pts"]],
-                        list(a.get("pts_malla", [])))
+                AreaGeom(
+                    a["nombre"],
+                    a["seccion"],
+                    a.get("espesor"),
+                    list(a.get("pts_nombres", [])),
+                    [tuple(p) for p in a["pts"]],
+                    list(a.get("pts_malla", [])),
+                )
                 for a in d.get("areas", [])
             ],
             contorno=[tuple(p) for p in d.get("contorno", [])],
             pedestales=[
-                Pedestal(pd["frame"], pd["largo"], pd["ancho"],
-                        pd["largo_en_x"], tuple(pd["centro"]),
-                        pd.get("punto_pie", ""), pd.get("aproximado", False),
-                        pd.get("motivo_aviso", ""))
+                Pedestal(
+                    pd["frame"],
+                    pd["largo"],
+                    pd["ancho"],
+                    pd["largo_en_x"],
+                    tuple(pd["centro"]),
+                    pd.get("punto_pie", ""),
+                    pd.get("aproximado", False),
+                    pd.get("motivo_aviso", ""),
+                )
                 for pd in d.get("pedestales", [])
             ],
         )
@@ -92,11 +114,10 @@ class FundacionGeom:
     zapatas: List[Zapata] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {"nombre": self.nombre,
-                "zapatas": [z.to_dict() for z in self.zapatas]}
+        return {"nombre": self.nombre, "zapatas": [z.to_dict() for z in self.zapatas]}
 
     @staticmethod
     def from_dict(d: dict) -> "FundacionGeom":
         return FundacionGeom(
-            nombre=d.get("nombre", ""),
-            zapatas=[Zapata.from_dict(z) for z in d.get("zapatas", [])])
+            nombre=d.get("nombre", ""), zapatas=[Zapata.from_dict(z) for z in d.get("zapatas", [])]
+        )

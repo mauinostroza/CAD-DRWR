@@ -48,19 +48,34 @@ def campos(spec):
         if kind == "combo":
             opts = [str(o) for o in row[3]]
             default = str(row[4]) if len(row) > 4 and str(row[4]) in opts else opts[0]
-            out.append({"key": key, "label": label, "kind": "combo",
-                        "options": opts, "value": default})
+            out.append({"key": key, "label": label, "kind": "combo", "options": opts, "value": default})
         elif kind == "int":
-            out.append({"key": key, "label": label, "kind": "int", "min": row[3],
-                        "max": row[4], "value": row[5],
-                        "step": row[6] if len(row) > 6 else 1,
-                        "suffix": row[7] if len(row) > 7 else ""})
+            out.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "kind": "int",
+                    "min": row[3],
+                    "max": row[4],
+                    "value": row[5],
+                    "step": row[6] if len(row) > 6 else 1,
+                    "suffix": row[7] if len(row) > 7 else "",
+                }
+            )
         elif kind == "float":
-            out.append({"key": key, "label": label, "kind": "float", "min": row[3],
-                        "max": row[4], "value": row[5],
-                        "decimals": row[6] if len(row) > 6 else 1,
-                        "step": row[7] if len(row) > 7 else 1,
-                        "suffix": row[8] if len(row) > 8 else ""})
+            out.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "kind": "float",
+                    "min": row[3],
+                    "max": row[4],
+                    "value": row[5],
+                    "decimals": row[6] if len(row) > 6 else 1,
+                    "step": row[7] if len(row) > 7 else 1,
+                    "suffix": row[8] if len(row) > 8 else "",
+                }
+            )
         elif kind == "chk":
             out.append({"key": key, "label": label, "kind": "chk", "value": bool(row[3])})
         else:

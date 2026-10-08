@@ -72,9 +72,9 @@ describe('resumenGeom', () => {
 describe('setEspesorZapata', () => {
   it('fija el espesor en todas las áreas de la zapata indicada', () => {
     const g = setEspesorZapata(geom(), 0, 350)
-    expect(g.zapatas[0].areas.map((a) => a.espesor)).toEqual([350, 350])
-    expect(g.zapatas[1].areas.map((a) => a.espesor)).toEqual([200])
-    expect(g.zapatas[2].areas.map((a) => a.espesor)).toEqual([200, 200, 200])
+    expect(g.zapatas[0].areas.map(a => a.espesor)).toEqual([350, 350])
+    expect(g.zapatas[1].areas.map(a => a.espesor)).toEqual([200])
+    expect(g.zapatas[2].areas.map(a => a.espesor)).toEqual([200, 200, 200])
   })
 
   it('no modifica la geometría original ni el contorno', () => {
@@ -124,7 +124,7 @@ describe('setPedestal', () => {
 describe('quitarPedestal', () => {
   it('quita sólo el pedestal indicado', () => {
     const g = quitarPedestal(geom(), 0, 0)
-    expect(g.zapatas[0].pedestales.map((p) => p.frame)).toEqual(['FZ11'])
+    expect(g.zapatas[0].pedestales.map(p => p.frame)).toEqual(['FZ11'])
     expect(geom().zapatas[0].pedestales).toHaveLength(2)
   })
 })
@@ -132,13 +132,13 @@ describe('quitarPedestal', () => {
 describe('incluirZapata', () => {
   it('devuelve sólo las zapatas indicadas, en su orden', () => {
     const g = incluirZapata(geom(), [2, 0])
-    expect(g.zapatas.map((z) => z.nombre)).toEqual(['Z1', 'Z3'])
+    expect(g.zapatas.map(z => z.nombre)).toEqual(['Z1', 'Z3'])
     expect(g.nombre).toBe('G1')
   })
 
   it('ignora índices fuera de rango y repetidos', () => {
     const g = incluirZapata(geom(), [1, 1, 7])
-    expect(g.zapatas.map((z) => z.nombre)).toEqual(['Z2'])
+    expect(g.zapatas.map(z => z.nombre)).toEqual(['Z2'])
   })
 
   it('lista vacía devuelve geometría sin zapatas', () => {
@@ -159,8 +159,6 @@ describe('esGeomValida', () => {
     expect(esGeomValida({ zapatas: [] })).toBe(false)
     expect(esGeomValida({ nombre: 'x' })).toBe(false)
     expect(esGeomValida({ nombre: 'x', zapatas: [{ nombre: 'Z' }] })).toBe(false)
-    expect(esGeomValida({ nombre: 'x', zapatas: [{ nombre: 'Z', areas: [], contorno: [] }] })).toBe(
-      false,
-    )
+    expect(esGeomValida({ nombre: 'x', zapatas: [{ nombre: 'Z', areas: [], contorno: [] }] })).toBe(false)
   })
 })

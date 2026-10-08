@@ -8,7 +8,7 @@ RAIZ = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 
 from backend.motor_calculo.cad_drwr import generators as g  # noqa: E402
-from scripts.golden_dump import dump  # noqa: E402
+from backend.motor_calculo.cad_drwr.volcado import dump  # noqa: E402
 
 GOLDEN = RAIZ / "backend/motor_calculo/cad_drwr/golden"
 

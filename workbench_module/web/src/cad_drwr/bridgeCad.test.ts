@@ -45,7 +45,7 @@ function montarFetch(manejador: Manejador) {
     return respuesta(r)
   })
   vi.stubGlobal('fetch', fn)
-  return { fn, llamadas, rutas: () => llamadas.map((l) => l.ruta) }
+  return { fn, llamadas, rutas: () => llamadas.map(l => l.ruta) }
 }
 
 /** Respuestas por defecto de un envío correcto; `extra` sobrescribe rutas concretas. */
@@ -131,13 +131,13 @@ describe('enviarDibujo: orquestación', () => {
       '/draw/batch',
       '/draw/end',
     ])
-    const lotes = llamadas.filter((l) => l.ruta === '/draw/batch')
-    expect(lotes.map((l) => (l.body.ents as unknown[]).length)).toEqual([500, 500, 200])
-    expect(lotes.every((l) => l.body.sesion === 'S1')).toBe(true)
+    const lotes = llamadas.filter(l => l.ruta === '/draw/batch')
+    expect(lotes.map(l => (l.body.ents as unknown[]).length)).toEqual([500, 500, 200])
+    expect(lotes.every(l => l.body.sesion === 'S1')).toBe(true)
 
-    const begin = llamadas.find((l) => l.ruta === '/draw/begin')!
+    const begin = llamadas.find(l => l.ruta === '/draw/begin')!
     expect(begin.body).toEqual({ confirmed: true, n_total: 1200, th: 3.5 })
-    expect(llamadas.find((l) => l.ruta === '/draw/end')!.body).toEqual({ sesion: 'S1' })
+    expect(llamadas.find(l => l.ruta === '/draw/end')!.body).toEqual({ sesion: 'S1' })
     expect(r.documento).toBe('plano.dwg')
     expect(r.resumen).toBe('Resumen OK')
   })
@@ -145,7 +145,7 @@ describe('enviarDibujo: orquestación', () => {
   it('envía el Bearer del puente en cada llamada', async () => {
     const { llamadas } = montarFetch(ruteoOk())
     await enviarDibujo(CREDS, dibujo(3), { ubicarConClic: false })
-    expect(llamadas.every((l) => l.auth === 'Bearer tok-123')).toBe(true)
+    expect(llamadas.every(l => l.auth === 'Bearer tok-123')).toBe(true)
   })
 
   it('con ubicarConClic envía el origen del pick en begin', async () => {
@@ -153,24 +153,17 @@ describe('enviarDibujo: orquestación', () => {
     const fases: EstadoEnvio['fase'][] = []
     await enviarDibujo(CREDS, dibujo(2), {
       ubicarConClic: true,
-      onEstado: (e) => fases.push(e.fase),
+      onEstado: e => fases.push(e.fase),
     })
     expect(rutas()).toContain('/pick')
-    expect(llamadas.find((l) => l.ruta === '/draw/begin')!.body.origen).toEqual([10, -5])
-    expect(fases).toEqual([
-      'conectando',
-      'esperando_clic',
-      'enviando',
-      'enviando',
-      'finalizando',
-      'listo',
-    ])
+    expect(llamadas.find(l => l.ruta === '/draw/begin')!.body.origen).toEqual([10, -5])
+    expect(fases).toEqual(['conectando', 'esperando_clic', 'enviando', 'enviando', 'finalizando', 'listo'])
   })
 
   it('sin pick no envía origen', async () => {
     const { llamadas } = montarFetch(ruteoOk())
     await enviarDibujo(CREDS, dibujo(2), { ubicarConClic: false })
-    expect('origen' in llamadas.find((l) => l.ruta === '/draw/begin')!.body).toBe(false)
+    expect('origen' in llamadas.find(l => l.ruta === '/draw/begin')!.body).toBe(false)
   })
 
   it('acumula errores de cada lote con índice global (offset)', async () => {
@@ -225,7 +218,7 @@ describe('enviarDibujo: orquestación', () => {
     }).catch((e: unknown) => e)
     expect(err).toMatchObject({ name: 'AbortError' })
     expect(lotes).toBe(1)
-    const fin = llamadas.filter((l) => l.ruta === '/draw/end')
+    const fin = llamadas.filter(l => l.ruta === '/draw/end')
     expect(fin).toHaveLength(1)
     expect(fin[0].body).toEqual({ sesion: 'S1' })
   })
@@ -246,9 +239,7 @@ describe('enviarDibujo: orquestación', () => {
         '/draw/batch': () => ({
           status: 422,
           json: {
-            detail: [
-              { loc: ['body', 'ents', 0, 'l'], msg: 'Capa desconocida: X', type: 'value_error' },
-            ],
+            detail: [{ loc: ['body', 'ents', 0, 'l'], msg: 'Capa desconocida: X', type: 'value_error' }],
           },
         }),
       }),
@@ -346,7 +337,7 @@ describe('mapeo de errores HTTP', () => {
     montarFetch(() => ({ status: 503 }))
     const sin = await errorDe(estadoCad(CREDS))
     expect(sin.codigo).toBe('otro')
-    expect(sin.message).toContain('503')
+    expect(sin.message).toContain('JSON')
   })
 
   it('red caída (fetch rechaza) -> sin_puente', async () => {

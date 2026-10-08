@@ -58,8 +58,11 @@ def validar_geom(geom):
         if not isinstance(areas, list) or len(areas) > MAX_AREAS_ZAPATA:
             raise ErrorDibujo(f"_geom: áreas de la zapata {i} inválidas o demasiado numerosas")
         for a in areas:
-            if not isinstance(a, dict) or not isinstance(a.get("pts", []), list) \
-                    or len(a.get("pts", [])) > MAX_PUNTOS:
+            if (
+                not isinstance(a, dict)
+                or not isinstance(a.get("pts", []), list)
+                or len(a.get("pts", [])) > MAX_PUNTOS
+            ):
                 raise ErrorDibujo(f"_geom: área inválida en la zapata {i}")
             for j, p in enumerate(a.get("pts", [])):
                 _punto(p, f"zapatas[{i}].areas.pts[{j}]")
@@ -101,10 +104,14 @@ def construir(modulo_id, params, lamina=None):
     if lamina and lamina.get("activa"):
         try:
             escala = float(str(p.get("escala", "1:25")).split(":")[-1])
-            dwg = compose_sheet(dwg, scale=escala, title=modulo.nombre,
-                                project=lamina.get("proyecto", ""),
-                                number=lamina.get("numero_plano", ""),
-                                revision=lamina.get("revision", ""))
+            dwg = compose_sheet(
+                dwg,
+                scale=escala,
+                title=modulo.nombre,
+                project=lamina.get("proyecto", ""),
+                number=lamina.get("numero_plano", ""),
+                revision=lamina.get("revision", ""),
+            )
         except ValueError as exc:
             raise ErrorDibujo(str(exc)) from exc
     if len(dwg.ents) > MAX_ENTIDADES:

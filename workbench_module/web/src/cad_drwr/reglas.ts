@@ -205,15 +205,7 @@ function habPerno(v: Params): Record<string, boolean> {
   const pg = String(v.tipo).startsWith('PG')
   const inch = pg && v.d_nominal === '1 in'
   const out: Record<string, boolean> = { d_perno: !inch, lg: !pg }
-  for (const clave of [
-    'd_nominal',
-    'h1',
-    'h2',
-    'W',
-    't_golilla',
-    'b_golilla',
-    'permitir_h1_bajo_tc',
-  ]) {
+  for (const clave of ['d_nominal', 'h1', 'h2', 'W', 't_golilla', 'b_golilla', 'permitir_h1_bajo_tc']) {
     out[clave] = pg
   }
   return out

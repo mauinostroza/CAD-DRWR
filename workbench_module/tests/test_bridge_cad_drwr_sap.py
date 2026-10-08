@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Tests de las rutas SAP del puente CAD (bridge/cad_drwr_sap.py) y del
 adaptador ModelLink, con un SapModel FALSO: sin SAP2000 ni Windows.
 
@@ -25,13 +24,16 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-RAIZ = pathlib.Path(__file__).resolve().parents[1]          # workbench_module
+RAIZ = pathlib.Path(__file__).resolve().parents[1]  # workbench_module
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from bridge import cad_drwr, cad_drwr_sap  # noqa: E402
-from bridge.cad_sap_link import (ControlTrabajo, ModelLink,  # noqa: E402
-                                 TrabajoCancelado)
+from bridge.cad_sap_link import (
+    ControlTrabajo,
+    ModelLink,  # noqa: E402
+    TrabajoCancelado,
+)
 
 PREF = "/v1/sap/actions/cad/sap"
 CONTRATO = RAIZ / "web" / "src" / "cad_drwr" / "bridge_contracts.cad_drwr.json"
@@ -39,8 +41,9 @@ CONTRATO = RAIZ / "web" / "src" / "cad_drwr" / "bridge_contracts.cad_drwr.json"
 
 # --------------------------------------------------- SapModel FALSO --
 
+
 class Units:
-    def __init__(self, valor=6):           # 6 = kN-m-°C
+    def __init__(self, valor=6):  # 6 = kN-m-°C
         self.valor = valor
         self.historial = []
 
@@ -76,7 +79,7 @@ class PointObj:
 
     def GetCoordCartesian(self, nombre, *args):
         x, y, z = self._c[nombre]
-        return (0, x, y, z)                # forma que prueba primero el puente
+        return (0, x, y, z)  # forma que prueba primero el puente
 
 
 class AreaObj:
@@ -84,7 +87,7 @@ class AreaObj:
         self._m, self._a = m, areas
 
     def GetPoints(self, nombre, *args):
-        if self._m.gate is not None:       # permite detener la lectura a mitad
+        if self._m.gate is not None:  # permite detener la lectura a mitad
             self._m.llegado.set()
             self._m.gate.wait(5)
         pts = self._a[nombre]["pts"]
@@ -149,12 +152,18 @@ class PropFrame:
 
 
 COORDS = {
-    "A": (0.0, 0.0, 0.0), "B": (1500.0, 0.0, 0.0), "E": (3000.0, 0.0, 0.0),
-    "C": (1500.0, 3500.0, 0.0), "D": (0.0, 3500.0, 0.0),
-    "F": (3000.0, 3500.0, 0.0), "M": (1500.0, 1750.0, 0.0),
+    "A": (0.0, 0.0, 0.0),
+    "B": (1500.0, 0.0, 0.0),
+    "E": (3000.0, 0.0, 0.0),
+    "C": (1500.0, 3500.0, 0.0),
+    "D": (0.0, 3500.0, 0.0),
+    "F": (3000.0, 3500.0, 0.0),
+    "M": (1500.0, 1750.0, 0.0),
     "Mtop": (1500.0, 1750.0, 3000.0),
-    "P5": (5000.0, 0.0, 0.0), "P6": (6000.0, 0.0, 0.0),
-    "P7": (6000.0, 1000.0, 0.0), "P8": (5000.0, 1000.0, 0.0),
+    "P5": (5000.0, 0.0, 0.0),
+    "P6": (6000.0, 0.0, 0.0),
+    "P7": (6000.0, 1000.0, 0.0),
+    "P8": (5000.0, 1000.0, 0.0),
     "N9": (9000.0, 9000.0, 0.0),
 }
 AREAS = {
@@ -169,12 +178,12 @@ ELMS = {
 }
 GRUPOS = {
     "G_ZAP": ([5, 5, 5], ["S1", "S2", "S3"]),
-    "G_NODOS": ([1], ["N9"]),                       # sin shells
+    "G_NODOS": ([1], ["N9"]),  # sin shells
     "G_ROTO": RuntimeError("fallo simulado al leer asignaciones"),
 }
 MARCOS = {
-    "P1": ("M", "Mtop", "PED400"),                  # pedestal vertical
-    "T1": ("A", "E", "VIGA"),                       # horizontal: no cuenta
+    "P1": ("M", "Mtop", "PED400"),  # pedestal vertical
+    "T1": ("A", "E", "VIGA"),  # horizontal: no cuenta
 }
 
 
@@ -200,26 +209,29 @@ class SapModelFalso:
 
 # ------------------------------------------------------ calls falsos --
 
+
 def call_directo(model):
     """Ejecuta fn(model) en el mismo hilo (el actor no se simula)."""
+
     def call(fn):
         return fn(model)
+
     return call
 
 
 def call_que_vence(model, retardo=0.3):
     """Simula el timeout de 30 s: fn corre después en otro hilo y el llamador
     recibe HTTPException con detalle vacío, como en el puente anfitrión."""
+
     def call(fn):
-        threading.Thread(target=lambda: (time.sleep(retardo), fn(model)),
-                         daemon=True).start()
+        threading.Thread(target=lambda: (time.sleep(retardo), fn(model)), daemon=True).start()
         raise HTTPException(409, "")
+
     return call
 
 
 def call_sin_sap(fn):
-    raise HTTPException(
-        409, "No active SAP2000 connection. Abra SAP2000 con el modelo cargado.")
+    raise HTTPException(409, "No active SAP2000 connection. Abra SAP2000 con el modelo cargado.")
 
 
 def call_nunca_ejecuta(fn):
@@ -234,6 +246,7 @@ def cliente_con(call):
 
 
 # ------------------------------------------------------------ ayudas --
+
 
 def contrato():
     return json.loads(CONTRATO.read_text(encoding="utf-8"))["routes"]
@@ -276,13 +289,14 @@ def solo_msg(r):
 
 # ------------------------------------------------------ ModelLink (a) --
 
+
 def test_model_link_fija_y_restaura_unidades():
     m = SapModelFalso()
     link = ModelLink(m, ControlTrabajo())
     assert link.is_connected is True
     original = link.set_units_mm()
     assert original == 6
-    assert m.Units.valor == 9                       # N-mm-°C
+    assert m.Units.valor == 9  # N-mm-°C
     link.restore_units(original)
     assert m.Units.valor == 6
     assert m.Units.historial == [9, 6]
@@ -300,12 +314,12 @@ def test_model_link_cancelacion_lanza_y_la_restauracion_sigue():
     m = SapModelFalso()
     control = ControlTrabajo()
     link = ModelLink(m, control)
-    m.Units.valor = 9                               # como tras set_units_mm
+    m.Units.valor = 9  # como tras set_units_mm
     control.cancelar()
     with pytest.raises(TrabajoCancelado):
         link.get_sap_model()
     assert control.hechas == 0
-    link.restore_units(6)                           # debe ejecutarse igual
+    link.restore_units(6)  # debe ejecutarse igual
     assert m.Units.valor == 6
 
 
@@ -314,6 +328,7 @@ def test_trabajo_cancelado_no_se_traga_con_except_exception():
 
 
 # ------------------------------------------- rutas con call directo (b) --
+
 
 def test_groups_solo_grupos_con_shells_y_tolera_un_grupo_roto():
     cli = cliente_con(call_directo(SapModelFalso()))
@@ -338,13 +353,17 @@ def test_flujo_feliz_dos_zapatas_contorno_y_pedestal():
     assert len(zapatas) == 2
 
     fusionada, aislada = zapatas
-    assert fusionada["nombre"] == "P1"              # nombrada por su pedestal
+    assert fusionada["nombre"] == "P1"  # nombrada por su pedestal
     assert len(fusionada["areas"]) == 2
     assert {a["espesor"] for a in fusionada["areas"]} == {300.0}
     # Contorno exterior de 4 esquinas reales (sin B ni C colineales).
     assert len(fusionada["contorno"]) == 4
     assert {tuple(p) for p in fusionada["contorno"]} == {
-        (0.0, 0.0), (3000.0, 0.0), (3000.0, 3500.0), (0.0, 3500.0)}
+        (0.0, 0.0),
+        (3000.0, 0.0),
+        (3000.0, 3500.0),
+        (0.0, 3500.0),
+    }
 
     assert len(fusionada["pedestales"]) == 1
     pd = fusionada["pedestales"][0]
@@ -396,7 +415,7 @@ def test_error_de_la_lectura_muestra_el_mensaje_real():
 
 def test_resultado_no_serializable_a_json_es_error():
     coords = dict(COORDS)
-    coords["P5"] = (float("nan"), 0.0, 0.0)         # llega al contorno de F2
+    coords["P5"] = (float("nan"), 0.0, 0.0)  # llega al contorno de F2
     cli = cliente_con(call_directo(SapModelFalso(coords=coords)))
     fin = esperar_fin(cli, arrancar(cli))
     assert fin["estado"] == "error"
@@ -417,7 +436,7 @@ def test_cancelacion_cooperativa_restaura_unidades():
     assert fin["estado"] == "cancelado"
     assert fin["hechas"] >= 1
     assert "error" not in fin and "resultado" not in fin
-    assert m.Units.historial == [9, 6]              # restaurada pese a cancelar
+    assert m.Units.historial == [9, 6]  # restaurada pese a cancelar
     assert m.Units.valor == 6
 
 
@@ -432,13 +451,12 @@ def test_segundo_trabajo_concurrente_409_y_luego_se_puede_iniciar():
     assert r.json()["detail"] == "Ya hay una lectura de SAP2000 en curso"
     gate.set()
     assert esperar_fin(cli, job)["estado"] == "listo"
-    assert arrancar(cli)                            # ya no hay activo
+    assert arrancar(cli)  # ya no hay activo
 
 
 def test_job_desconocido_409():
     cli = cliente_con(call_directo(SapModelFalso()))
-    for ruta, cuerpo in (("/foundation/status", {"job": "nope"}),
-                         ("/foundation/cancel", {"job": "nope"})):
+    for ruta, cuerpo in (("/foundation/status", {"job": "nope"}), ("/foundation/cancel", {"job": "nope"})):
         r = cli.post(PREF + ruta, json=cuerpo)
         assert r.status_code == 409
         assert r.json()["detail"] == "El trabajo no existe o venció"
@@ -450,8 +468,7 @@ def test_cancelar_trabajo_terminado_409():
     esperar_fin(cli, job)
     r = cli.post(PREF + "/foundation/cancel", json={"job": job})
     assert r.status_code == 409
-    assert r.json()["detail"] == (
-        "El trabajo ya terminó (estado: listo); no se puede cancelar")
+    assert r.json()["detail"] == ("El trabajo ya terminó (estado: listo); no se puede cancelar")
 
 
 def test_trabajo_terminado_vence_tras_el_ttl(monkeypatch):
@@ -486,6 +503,7 @@ def test_entrada_invalida_422_en_espanol():
 
 # ----------------------------------------- integración desde cad_drwr (c) --
 
+
 def test_install_routes_monta_sap_solo_con_call():
     sin_call = FastAPI()
     cad_drwr.install_routes(sin_call)
@@ -504,9 +522,11 @@ def test_contrato_sap_coincide_con_las_claves_reales():
     cad_drwr.install_routes(con_call, call_directo(m))
     cli = TestClient(con_call)
 
-    rutas_sap = {f"POST {ruta}" for ruta, ops in
-                 con_call.openapi()["paths"].items()
-                 if ruta.startswith(PREF) and "post" in ops}
+    rutas_sap = {
+        f"POST {ruta}"
+        for ruta, ops in con_call.openapi()["paths"].items()
+        if ruta.startswith(PREF) and "post" in ops
+    }
     assert rutas_sap == {r for r in contrato() if "/cad/sap/" in r}
 
     assert sorted(cli.post(PREF + "/groups", json={}).json()) == claves("/groups")
@@ -525,6 +545,6 @@ def test_contrato_sap_coincide_con_las_claves_reales():
     assert cancelado["estado"] == "cancelado"
     assert sorted(cancelado) == claves_base_status()
 
-    listo = esperar_fin(cli, arrancar(cli))         # segundo trabajo, sin bloqueo
+    listo = esperar_fin(cli, arrancar(cli))  # segundo trabajo, sin bloqueo
     assert listo["estado"] == "listo"
     assert sorted(listo) == sorted(claves_base_status() + ["resultado"])

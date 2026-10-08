@@ -12,8 +12,7 @@ import ezdxf
 from ezdxf.enums import TextEntityAlignment
 
 from .core import ir
-from .core.ir import (Line, Circle, Arc, Poly, Filled, Text, Dim, Leader,
-                     Table, Drawing)
+from .core.ir import Line, Circle, Arc, Poly, Filled, Text, Dim, Leader, Table, Drawing
 from .core.dims import uses_outside_arrows
 from .core.annotations import leader_parts, table_parts
 
@@ -21,9 +20,18 @@ _AL = {"l": 0, "c": 1, "r": 2}
 _VA = {"b": 1, "m": 2, "t": 3}
 
 # grosores de capa en centésimas de mm
-_LW = {ir.L_EJE: 13, ir.L_ACOT: 18, ir.L_TXT: 18, ir.L_CONC: 35,
-       ir.L_ACERO: 50, ir.L_PERF: 25, ir.L_SOLD: 18, ir.L_HACH: 9,
-       ir.L_TABLA: 18, ir.L_OCULTO: 18}
+_LW = {
+    ir.L_EJE: 13,
+    ir.L_ACOT: 18,
+    ir.L_TXT: 18,
+    ir.L_CONC: 35,
+    ir.L_ACERO: 50,
+    ir.L_PERF: 25,
+    ir.L_SOLD: 18,
+    ir.L_HACH: 9,
+    ir.L_TABLA: 18,
+    ir.L_OCULTO: 18,
+}
 
 
 def _align(ha: str, va: str):
@@ -44,7 +52,7 @@ def _align(ha: str, va: str):
 
 def write_dxf(dwg: Drawing, path: str) -> None:
     doc = ezdxf.new("R2010", setup=True)
-    doc.header["$INSUNITS"] = 4          # milímetros
+    doc.header["$INSUNITS"] = 4  # milímetros
     doc.header["$LWDISPLAY"] = 1
     doc.header["$LTSCALE"] = _infer_ltscale(dwg)
     msp = doc.modelspace()
@@ -62,14 +70,26 @@ def write_dxf(dwg: Drawing, path: str) -> None:
     # estilo de cota
     th = _infer_th(dwg)
     if "ING" not in doc.dimstyles:
-        doc.dimstyles.add("ING", dxfattribs={
-            "dimtxt": th, "dimasz": 0.85 * th, "dimexe": 0.45 * th,
-            "dimexo": 0.30 * th, "dimgap": 0.35 * th, "dimtad": 1,
-            "dimjust": 0, "dimdec": 0, "dimzin": 8, "dimlunit": 2,
-            "dimtxsty": "ING", "dimscale": 1.0,
-            # Mantiene la línea entre puntos cuando texto/flechas salen.
-            "dimtofl": 1, "dimsoxd": 0,
-        })
+        doc.dimstyles.add(
+            "ING",
+            dxfattribs={
+                "dimtxt": th,
+                "dimasz": 0.85 * th,
+                "dimexe": 0.45 * th,
+                "dimexo": 0.30 * th,
+                "dimgap": 0.35 * th,
+                "dimtad": 1,
+                "dimjust": 0,
+                "dimdec": 0,
+                "dimzin": 8,
+                "dimlunit": 2,
+                "dimtxsty": "ING",
+                "dimscale": 1.0,
+                # Mantiene la línea entre puntos cuando texto/flechas salen.
+                "dimtofl": 1,
+                "dimsoxd": 0,
+            },
+        )
 
     for e in dwg.ents:
         _write_ent(msp, e)
@@ -94,12 +114,12 @@ def _infer_ltscale(dwg: Drawing) -> float:
 
 # ----------------------------------------------------------------- entidades --
 
+
 def _write_ent(msp, e) -> None:
     if isinstance(e, Line):
         if e.width > 0:
             # línea con grosor (p. ej. barra/perno) -> LWPOLYLINE con ancho
-            msp.add_lwpolyline([e.p1, e.p2], dxfattribs={
-                "layer": e.layer, "const_width": e.width})
+            msp.add_lwpolyline([e.p1, e.p2], dxfattribs={"layer": e.layer, "const_width": e.width})
         else:
             msp.add_line(e.p1, e.p2, dxfattribs={"layer": e.layer})
 
@@ -117,37 +137,49 @@ def _write_ent(msp, e) -> None:
         if len(e.pts) < 2:
             return
         if e.width > 0:
-            msp.add_lwpolyline(e.pts, close=e.closed,
-                               dxfattribs={"layer": e.layer,
-                                           "const_width": e.width})
+            msp.add_lwpolyline(e.pts, close=e.closed, dxfattribs={"layer": e.layer, "const_width": e.width})
         else:
-            msp.add_lwpolyline(e.pts, close=e.closed,
-                               dxfattribs={"layer": e.layer})
+            msp.add_lwpolyline(e.pts, close=e.closed, dxfattribs={"layer": e.layer})
 
     elif isinstance(e, Filled):
-        msp.add_solid([e.pts[0], e.pts[1], e.pts[2]] +
-                      ([e.pts[3]] if len(e.pts) > 3 else []),
-                      dxfattribs={"layer": e.layer})
+        msp.add_solid(
+            [e.pts[0], e.pts[1], e.pts[2]] + ([e.pts[3]] if len(e.pts) > 3 else []),
+            dxfattribs={"layer": e.layer},
+        )
 
     elif isinstance(e, Text):
-        t = msp.add_text(e.s, dxfattribs={"style": "ING", "height": e.h,
-                                          "rotation": e.rot, "layer": e.layer})
+        t = msp.add_text(e.s, dxfattribs={"style": "ING", "height": e.h, "rotation": e.rot, "layer": e.layer})
         t.set_placement(e.pos, align=_align(e.ha, e.va))
 
     elif isinstance(e, Dim):
         ang = 90.0 if e.vertical else 0.0
         dxf = {"layer": e.layer}
         th = e.text_height or _dimension_text_height(msp)
-        override = {"dimtxt": th, "dimasz": 0.85 * th, "dimexe": 0.45 * th,
-                    "dimexo": 0.30 * th, "dimgap": 0.70 * th,
-                    "dimtad": 1, "dimtih": 0, "dimtoh": 0,
-                    "dimtofl": 1, "dimsoxd": 0, "dimscale": 1.0}
+        override = {
+            "dimtxt": th,
+            "dimasz": 0.85 * th,
+            "dimexe": 0.45 * th,
+            "dimexo": 0.30 * th,
+            "dimgap": 0.70 * th,
+            "dimtad": 1,
+            "dimtih": 0,
+            "dimtoh": 0,
+            "dimtofl": 1,
+            "dimsoxd": 0,
+            "dimscale": 1.0,
+        }
         if uses_outside_arrows(e, th):
             override["dimatfit"] = 1
-        dim = msp.add_linear_dim(base=e.base, p1=e.p1, p2=e.p2, angle=ang,
-                                 text=e.txt if e.txt else "<>",
-                                 dimstyle="ING", override=override,
-                                 dxfattribs=dxf)
+        dim = msp.add_linear_dim(
+            base=e.base,
+            p1=e.p1,
+            p2=e.p2,
+            angle=ang,
+            text=e.txt if e.txt else "<>",
+            dimstyle="ING",
+            override=override,
+            dxfattribs=dxf,
+        )
         dim.render()
 
     elif isinstance(e, Leader):
@@ -209,6 +241,7 @@ def _ent_pts(e):
 
 def _place(e, cx, cy, s):
     import copy
+
     e2 = copy.copy(e)
     if isinstance(e, Line):
         e2.p1 = (cx + e.p1[0] * s, cy + e.p1[1] * s)

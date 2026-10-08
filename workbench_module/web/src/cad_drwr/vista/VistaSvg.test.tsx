@@ -1,8 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DibujoJson } from '../tipos'
 import { aPantalla, aModelo, pathArco, transformacion, type Vista } from './geometria'
 import { VistaSvg } from './VistaSvg'
+
+afterEach(cleanup)
 
 // jsdom no siempre trae PointerEvent: se usa un MouseEvent con pointerId como respaldo.
 if (typeof window.PointerEvent === 'undefined') {
@@ -73,9 +75,7 @@ const svg = () => screen.getByRole('img') as unknown as SVGSVGElement
 const raiz = (c: HTMLElement) => c.querySelector('svg > g') as SVGGElement
 
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
-    rectDe(CONTENEDOR, CONTENEDOR),
-  )
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rectDe(CONTENEDOR, CONTENEDOR))
   globalThis.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -131,7 +131,7 @@ describe('VistaSvg: render', () => {
     }
     const { container } = render(<VistaSvg dibujo={conCorto} capasOcultas={[]} />)
     const textos = Array.from(container.querySelectorAll('text'))
-    expect(textos.map((t) => t.textContent)).toEqual(['Texto'])
+    expect(textos.map(t => t.textContent)).toEqual(['Texto'])
     const t = textos[0]
     expect(t.getAttribute('text-anchor')).toBe('middle')
     expect(t.getAttribute('dominant-baseline')).toBe('central')
@@ -177,9 +177,7 @@ describe('VistaSvg: vista', () => {
   })
 
   it('cambiar ajusteToken reajusta la vista', () => {
-    const { container, rerender } = render(
-      <VistaSvg dibujo={dibujo} capasOcultas={[]} ajusteToken={1} />,
-    )
+    const { container, rerender } = render(<VistaSvg dibujo={dibujo} capasOcultas={[]} ajusteToken={1} />)
     fireEvent.wheel(svg(), { deltaY: -100, clientX: 250, clientY: 250 })
     expect(raiz(container).getAttribute('transform')).not.toBe(T_AJUSTADA)
 
@@ -254,9 +252,7 @@ describe('VistaSvg: modo medir', () => {
 
   it('dos clics con snap dan la medida y llaman a onMedida', () => {
     const alMedir = vi.fn()
-    const { container } = render(
-      <VistaSvg dibujo={dibujo} capasOcultas={[]} modoMedir onMedida={alMedir} />,
-    )
+    const { container } = render(<VistaSvg dibujo={dibujo} capasOcultas={[]} modoMedir onMedida={alMedir} />)
     // Puntos del dibujo (100,200) y (400,600), clicados con unos píxeles de error.
     const [x1, y1] = pantalla(100, 200)
     const [x2, y2] = pantalla(400, 600)
@@ -298,9 +294,7 @@ describe('VistaSvg: modo medir', () => {
 
   it('un arrastre en modo medir panea y no fija punto', () => {
     const alMedir = vi.fn()
-    const { container } = render(
-      <VistaSvg dibujo={dibujo} capasOcultas={[]} modoMedir onMedida={alMedir} />,
-    )
+    const { container } = render(<VistaSvg dibujo={dibujo} capasOcultas={[]} modoMedir onMedida={alMedir} />)
     fireEvent.pointerDown(svg(), { clientX: 250, clientY: 250, button: 0, pointerId: 3 })
     fireEvent.pointerMove(svg(), { clientX: 320, clientY: 250, pointerId: 3 })
     fireEvent.pointerUp(svg(), { clientX: 320, clientY: 250, button: 0, pointerId: 3 })

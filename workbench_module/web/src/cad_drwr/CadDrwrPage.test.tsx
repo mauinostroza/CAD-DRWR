@@ -1,16 +1,12 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  descargarDxf,
-  descargarLote,
-  listarModulos,
-  pedirDibujo,
-  type DibujoRespuesta,
-} from './api'
+import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
+import { descargarDxf, descargarLote, listarModulos, pedirDibujo, type DibujoRespuesta } from './api'
 import CadDrwrPage, { reiniciarCargaModulos } from './CadDrwrPage'
 import type { ModuloInfo } from './tipos'
 import { saveBlob } from '../lib_client'
+
+afterEach(cleanup)
 
 vi.mock('./api', () => ({
   listarModulos: vi.fn(),
@@ -21,7 +17,7 @@ vi.mock('./api', () => ({
 
 vi.mock('../lib_client', () => ({ saveBlob: vi.fn() }))
 
-vi.mock('./vista/exportar', async (importOriginal) => {
+vi.mock('./vista/exportar', async importOriginal => {
   const original = await importOriginal<typeof import('./vista/exportar')>()
   return { ...original, aPngBlob: vi.fn(async () => new Blob(['png'])) }
 })
@@ -105,7 +101,7 @@ function dibujoRespuesta(modulo: string): DibujoRespuesta {
   }
 }
 
-const esperarMs = (ms: number) => act(() => new Promise<void>((r) => setTimeout(r, ms)))
+const esperarMs = (ms: number) => act(() => new Promise<void>(r => setTimeout(r, ms)))
 
 function renderPagina(state: unknown = undefined) {
   const onState = vi.fn()
@@ -121,7 +117,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   reiniciarCargaModulos()
   vi.mocked(listarModulos).mockResolvedValue(MODULOS)
-  vi.mocked(pedirDibujo).mockImplementation(async (modulo) => dibujoRespuesta(modulo))
+  vi.mocked(pedirDibujo).mockImplementation(async modulo => dibujoRespuesta(modulo))
   vi.mocked(descargarDxf).mockResolvedValue(new Blob(['dxf']))
   vi.mocked(descargarLote).mockResolvedValue(new Blob(['zip']))
 })
@@ -257,11 +253,9 @@ describe('CadDrwrPage', () => {
     await user.click(screen.getByRole('button', { name: 'Exportar' }))
     await user.click(screen.getByRole('button', { name: 'Todos los módulos (ZIP de DXF)' }))
 
-    await waitFor(() =>
-      expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'cad_drwr_lote.zip'),
-    )
+    await waitFor(() => expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'cad_drwr_lote.zip'))
     const items = vi.mocked(descargarLote).mock.calls[0][0]
-    expect(items.map((i) => i.modulo)).toEqual(['placa_base', 'pedestal'])
+    expect(items.map(i => i.modulo)).toEqual(['placa_base', 'pedestal'])
   })
 
   it('muestra el error del servidor en un aviso', async () => {
@@ -269,9 +263,7 @@ describe('CadDrwrPage', () => {
     renderPagina()
 
     const alerta = await screen.findByRole('alert')
-    expect(alerta).toHaveTextContent(
-      'No se pudo actualizar el dibujo: Dimensión inválida en la placa',
-    )
+    expect(alerta).toHaveTextContent('No se pudo actualizar el dibujo: Dimensión inválida en la placa')
   })
 
   it('en un módulo interactivo sin geometría no llama al servidor', async () => {
@@ -283,7 +275,7 @@ describe('CadDrwrPage', () => {
     expect(screen.getByText(/Lea la geometría desde SAP2000/)).toBeInTheDocument()
     await esperarMs(300)
     const llamadas = vi.mocked(pedirDibujo).mock.calls
-    expect(llamadas.some((c) => c[0] === 'fundacion_sap')).toBe(false)
+    expect(llamadas.some(c => c[0] === 'fundacion_sap')).toBe(false)
   })
 
   it('guarda el estado con debounce mediante onState', async () => {

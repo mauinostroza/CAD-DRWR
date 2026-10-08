@@ -47,16 +47,7 @@ function paramsSeguros(v: unknown): Params {
 /** Nunca lanza: normaliza cualquier valor guardado (incluye versiones futuras y plantillas legacy). */
 export function migrarEstado(raw: unknown): EstadoCadDrwr {
   if (!esObj(raw)) return { ...ESTADO_INICIAL, params: {}, plantillas: [], capasOcultas: [] }
-  const {
-    schema_version: _v,
-    modulo,
-    params,
-    lamina,
-    plantillas,
-    geom,
-    capasOcultas,
-    ...extras
-  } = raw
+  const { schema_version: _v, modulo, params, lamina, plantillas, geom, capasOcultas, ...extras } = raw
   const l = esObj(lamina) ? lamina : {}
   const salida: EstadoCadDrwr = {
     ...extras,

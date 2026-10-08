@@ -126,8 +126,7 @@ export function transformTexto(p: Punto, rot: number): string {
 /** Anclaje SVG equivalente a ALIGN_H / ALIGN_V de preview.py. */
 export function anclajeTexto(ha: EntTexto['ha'], va: EntTexto['va']): AnclajeTexto {
   const textAnchor = ha === 'l' ? 'start' : ha === 'r' ? 'end' : 'middle'
-  const dominantBaseline =
-    va === 'b' ? 'text-after-edge' : va === 't' ? 'text-before-edge' : 'central'
+  const dominantBaseline = va === 'b' ? 'text-after-edge' : va === 't' ? 'text-before-edge' : 'central'
   return { textAnchor, dominantBaseline }
 }
 
@@ -157,12 +156,7 @@ function* candidatosSnap(render: readonly EntRender[]): Generator<Punto> {
  * Punto de snap más cercano a `p` dentro de `tolPx` píxeles de pantalla, o null.
  * La tolerancia se convierte a mm con la escala actual.
  */
-export function snaps(
-  render: readonly EntRender[],
-  tolPx: number,
-  escala: number,
-  p: Punto,
-): Punto | null {
+export function snaps(render: readonly EntRender[], tolPx: number, escala: number, p: Punto): Punto | null {
   const tol = tolPx / escala
   let mejor: Punto | null = null
   let mejorDist = Infinity

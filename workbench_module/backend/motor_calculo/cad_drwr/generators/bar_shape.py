@@ -17,16 +17,14 @@ from ..core.tables import cuadro_despiece, fila_barra
 
 # ----------------------------------------------------------------- SPEC --
 SPEC = [
-    ("forma", "Forma de barra", "combo",
-     ["Recta", "Gancho 90° (L)", "U", "Estribo 135°", "Z"], "U"),
+    ("forma", "Forma de barra", "combo", ["Recta", "Gancho 90° (L)", "U", "Estribo 135°", "Z"], "U"),
     ("a", "Tramo a (mm)", "float", 50, 12000, 600, 0, 10, ""),
     ("b", "Tramo b (mm)", "float", 50, 3000, 300, 0, 10, ""),
     ("c", "Tramo c (mm)", "float", 0, 3000, 200, 0, 10, ""),
     ("d_barra", "Ø barra (mm)", "combo", DIAM_BARRAS, 12),
     ("k", "Radio doblez R = kØ", "float", 2, 8, 4, 1, 0.5, ""),
     ("qty", "Cantidad", "int", 1, 999, 10, 1, ""),
-    ("marca", "Marca de barra", "combo",
-     ["B1", "B2", "B3", "B4", "B5", "B6"], "B1"),
+    ("marca", "Marca de barra", "combo", ["B1", "B2", "B3", "B4", "B5", "B6"], "B1"),
     ("escala", "Escala de acotado", "combo", ESCALAS, "1:25"),
 ]
 
@@ -42,7 +40,7 @@ def _path(p):
         return [(0, 0), (0, b), (a, b), (a, 0)]
     if forma.startswith("Estribo"):
         return stirrup_pts(a, b, float(p["d_barra"]), p["k"] * float(p["d_barra"]))
-    return [(0, 0), (a, 0), (a, b), (a + c, b)]        # Z
+    return [(0, 0), (a, 0), (a, b), (a + c, b)]  # Z
 
 
 # -------------------------------------------------------------- generador --
@@ -71,24 +69,45 @@ def build_bar_shape(p: dict) -> ir.Drawing:
     # nota de radio y desarrollo
     forma = p["forma"]
     if len(pts) > 2:
-        d.ents.append(ir.Leader(pts[1], (pts[1][0] + 35 * f,
-                                         pts[1][1] + 35 * f),
-                                f"R = {p['k']:g}Ø = {R_in:g} mm", th,
-                                shelf=20 * f, side=1))
-    d.ents.append(Text((0, y_min - 90 * f),
-                       f"DESARROLLO = {dev / 1000.0:.2f} m x {p['qty']} "
-                       f"unidades", 3.0 * f, 0, ir.L_TXT, "c", "m"))
+        d.ents.append(
+            ir.Leader(
+                pts[1],
+                (pts[1][0] + 35 * f, pts[1][1] + 35 * f),
+                f"R = {p['k']:g}Ø = {R_in:g} mm",
+                th,
+                shelf=20 * f,
+                side=1,
+            )
+        )
+    d.ents.append(
+        Text(
+            (0, y_min - 90 * f),
+            f"DESARROLLO = {dev / 1000.0:.2f} m x {p['qty']} unidades",
+            3.0 * f,
+            0,
+            ir.L_TXT,
+            "c",
+            "m",
+        )
+    )
 
     # fila de despiece
-    celdas, sk, _ = fila_barra(str(p["marca"]), "", pts, db_d, R_in,
-                               int(p["qty"]))
+    celdas, sk, _ = fila_barra(str(p["marca"]), "", pts, db_d, R_in, int(p["qty"]))
     y_tab = y_min - 125 * f
-    tb = cuadro_despiece((-max(xs) / 2 - 90 * f, y_tab), f,
-                         [(celdas, sk)], total_kg=None,
-                         title="CUADRO DE DESPIECE")
+    tb = cuadro_despiece(
+        (-max(xs) / 2 - 90 * f, y_tab), f, [(celdas, sk)], total_kg=None, title="CUADRO DE DESPIECE"
+    )
     d.ents.append(tb)
     y_min = y_tab - 2.6 * tb.row_h - 14 * f
-    d.ents.append(Text((0, y_min),
-                       f"BARRA {p['marca']} - {forma.upper()}  Ø{db_d:g}  -  "
-                       f"ESC {p['escala']}", 4.5 * f, 0, ir.L_TXT, "c", "m"))
+    d.ents.append(
+        Text(
+            (0, y_min),
+            f"BARRA {p['marca']} - {forma.upper()}  Ø{db_d:g}  -  ESC {p['escala']}",
+            4.5 * f,
+            0,
+            ir.L_TXT,
+            "c",
+            "m",
+        )
+    )
     return d

@@ -72,7 +72,7 @@ export function patronTrazo(capa: string): readonly [number, number] | null {
 /** Valor de stroke-dasharray para un ancho dado, o undefined si la capa es continua. */
 export function dashArray(capa: string, ancho: number): string | undefined {
   const p = patronTrazo(capa)
-  return p ? p.map((k) => k * ancho).join(' ') : undefined
+  return p ? p.map(k => k * ancho).join(' ') : undefined
 }
 
 /** Normaliza las capas ocultas (estado en array o Set) a un Set. */

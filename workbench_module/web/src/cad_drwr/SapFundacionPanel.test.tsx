@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -11,7 +11,9 @@ import {
 } from './bridgeCad'
 import SapFundacionPanel from './SapFundacionPanel'
 
-vi.mock('./bridgeCad', async (importOriginal) => {
+afterEach(cleanup)
+
+vi.mock('./bridgeCad', async importOriginal => {
   const real = await importOriginal<typeof import('./bridgeCad')>()
   return {
     ...real,
@@ -261,7 +263,7 @@ describe('SapFundacionPanel: edición', () => {
     await user.type(espesor, '350')
 
     const ultima = onGeom.mock.calls.at(-1)![0] as typeof original
-    expect(ultima.zapatas[0].areas.map((a) => a.espesor)).toEqual([350, 350])
+    expect(ultima.zapatas[0].areas.map(a => a.espesor)).toEqual([350, 350])
     expect(ultima.zapatas[0].contorno).toEqual(original.zapatas[0].contorno)
     expect(original.zapatas[0].areas[0].espesor).toBe(200)
   })
@@ -287,7 +289,7 @@ describe('SapFundacionPanel: edición', () => {
     await user.click(screen.getByRole('button', { name: 'Quitar pedestal FZ1a' }))
 
     const ultima = onGeom.mock.calls.at(-1)![0] as ReturnType<typeof fixture>
-    expect(ultima.zapatas[0].pedestales.map((p) => p.frame)).toEqual(['FZ1b'])
+    expect(ultima.zapatas[0].pedestales.map(p => p.frame)).toEqual(['FZ1b'])
   })
 
   it('excluir una zapata emite sólo las incluidas y la exclusión se conserva al editar', async () => {
@@ -297,13 +299,13 @@ describe('SapFundacionPanel: edición', () => {
 
     await user.click(screen.getByRole('checkbox', { name: 'Incluir Z2' }))
     let emitida = onGeom.mock.calls.at(-1)![0] as ReturnType<typeof fixture>
-    expect(emitida.zapatas.map((z) => z.nombre)).toEqual(['Z1', 'Z3'])
+    expect(emitida.zapatas.map(z => z.nombre)).toEqual(['Z1', 'Z3'])
 
     const espesor = screen.getByRole('spinbutton', { name: 'Espesor de Z1 (mm)' })
     await user.clear(espesor)
     await user.type(espesor, '300')
     emitida = onGeom.mock.calls.at(-1)![0] as ReturnType<typeof fixture>
-    expect(emitida.zapatas.map((z) => z.nombre)).toEqual(['Z1', 'Z3'])
+    expect(emitida.zapatas.map(z => z.nombre)).toEqual(['Z1', 'Z3'])
     expect(emitida.zapatas[0].areas[0].espesor).toBe(300)
   })
 

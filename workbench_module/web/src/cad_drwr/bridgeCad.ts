@@ -1,6 +1,7 @@
 // Cliente del puente local (ZWCAD/AutoCAD y SAP2000) para CAD-DRWR.
 // Único archivo del módulo que importa ../bridge_client.
 
+import { conAbort } from './abort'
 import { getBridgeCredentials, sapRequestRaw, type BridgeCreds } from '../bridge_client'
 import type { DibujoRespuesta } from './api'
 import type { EntCad } from './tipos'
@@ -60,7 +61,7 @@ export function textoDetalle(data: unknown): string | null {
       if (!item || typeof item !== 'object') continue
       const { loc, msg } = item as { loc?: unknown; msg?: unknown }
       if (typeof msg !== 'string') continue
-      const campo = Array.isArray(loc) ? loc.filter((p) => p !== 'body').join('.') : ''
+      const campo = Array.isArray(loc) ? loc.filter(p => p !== 'body').join('.') : ''
       partes.push(campo ? `${campo}: ${msg}` : msg)
     }
     return partes.length > 0 ? partes.join('; ') : null
@@ -72,8 +73,7 @@ function errorDeRespuesta(status: number, data: unknown): ErrorPuente {
   const texto = textoDetalle(data)
   if (status === 401) return new ErrorPuente('sesion', MENSAJE_SESION, status)
   if (status === 404) return new ErrorPuente('antiguo', MENSAJE_ANTIGUO, status)
-  if (status === 409)
-    return new ErrorPuente('cad', texto ?? 'El CAD no pudo completar la operación.', status)
+  if (status === 409) return new ErrorPuente('cad', texto ?? 'El CAD no pudo completar la operación.', status)
   if (status === 422)
     return new ErrorPuente('validacion', texto ?? 'El puente rechazó los datos enviados.', status)
   return new ErrorPuente('otro', texto ?? `El puente respondió con error ${status}.`, status)
@@ -81,22 +81,19 @@ function errorDeRespuesta(status: number, data: unknown): ErrorPuente {
 
 // ------------------------------------------------------------ llamada --
 
-async function llamar<T>(
-  creds: BridgeCreds,
-  ruta: string,
-  body: unknown,
-  signal?: AbortSignal,
-): Promise<T> {
+async function llamar<T>(creds: BridgeCreds, ruta: string, body: unknown, signal?: AbortSignal): Promise<T> {
   if (creds.source === 'none') throw new ErrorPuente('sin_puente', MENSAJE_SIN_EMPAREJAR)
-  const res = await sapRequestRaw<unknown>(creds, PREFIJO + ruta, body, signal).catch(
-    (e: unknown) => {
-      if (esAbort(e)) throw e
-      throw new ErrorPuente(
-        'sin_puente',
-        `No se pudo contactar con SAP2000Bridge en ${creds.url}. Compruebe que la aplicación esté abierta.`,
-      )
-    },
-  )
+  const res = await conAbort(sapRequestRaw(creds, PREFIJO + ruta, body), signal).catch((e: unknown) => {
+    if (esAbort(e)) throw e
+    // `sapRequestRaw` lee siempre JSON: un cuerpo vacío o no JSON no es una caída de red.
+    if (e instanceof SyntaxError) {
+      throw new ErrorPuente('otro', 'El puente devolvió una respuesta que no es JSON válido.')
+    }
+    throw new ErrorPuente(
+      'sin_puente',
+      `No se pudo contactar con SAP2000Bridge en ${creds.url}. Compruebe que la aplicación esté abierta.`,
+    )
+  })
   if (res.status >= 200 && res.status < 300) return res.data as T
   throw errorDeRespuesta(res.status, res.data)
 }
@@ -243,11 +240,7 @@ export async function enviarDibujo(
 
   lanzarSiAborta(signal)
   emitir('enviando', 0, 'Abriendo la sesión de dibujo…')
-  const sesion = await beginCad(
-    creds,
-    { confirmed: true, origen, n_total: total, th: dibujo.th },
-    signal,
-  )
+  const sesion = await beginCad(creds, { confirmed: true, origen, n_total: total, th: dibujo.th }, signal)
 
   const errores: ErrorEntidad[] = []
   let liberada = false

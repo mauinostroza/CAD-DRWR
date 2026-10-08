@@ -15,29 +15,29 @@ from typing import List, Optional, Tuple
 PT = Tuple[float, float]
 
 # ---------------------------------------------------------------- capas ---
-L_EJE = "EJE"            # líneas de eje (center lines)
-L_CONC = "CONCRETO"      # contornos de concreto / placa / perfil
-L_ACERO = "ACERO"        # barras de refuerzo, pernos
-L_ACOT = "ACOTADO"       # cotas y flechas
-L_TXT = "TEXTOS"         # rótulos, notas, etiquetas
-L_PERF = "PERFORACIONES" # perforaciones de placas
-L_SOLD = "SOLDADURA"     # símbolos de soldadura
-L_HACH = "HACHURADO"     # hachurado de concreto
-L_TABLA = "TABLAS"       # cuadros / tablas
-L_OCULTO = "OCULTO"      # líneas ocultas
+L_EJE = "EJE"  # líneas de eje (center lines)
+L_CONC = "CONCRETO"  # contornos de concreto / placa / perfil
+L_ACERO = "ACERO"  # barras de refuerzo, pernos
+L_ACOT = "ACOTADO"  # cotas y flechas
+L_TXT = "TEXTOS"  # rótulos, notas, etiquetas
+L_PERF = "PERFORACIONES"  # perforaciones de placas
+L_SOLD = "SOLDADURA"  # símbolos de soldadura
+L_HACH = "HACHURADO"  # hachurado de concreto
+L_TABLA = "TABLAS"  # cuadros / tablas
+L_OCULTO = "OCULTO"  # líneas ocultas
 
 # Colores ACI (AutoCAD Color Index) por capa
 LAYER_COLORS = {
-    L_EJE: 1,        # rojo
-    L_CONC: 7,       # blanco
-    L_ACERO: 2,      # amarillo
-    L_ACOT: 3,       # verde
-    L_TXT: 4,        # cian
-    L_PERF: 5,       # azul
-    L_SOLD: 30,      # naranja
-    L_HACH: 8,       # gris
-    L_TABLA: 7,      # blanco
-    L_OCULTO: 8,     # gris
+    L_EJE: 1,  # rojo
+    L_CONC: 7,  # blanco
+    L_ACERO: 2,  # amarillo
+    L_ACOT: 3,  # verde
+    L_TXT: 4,  # cian
+    L_PERF: 5,  # azul
+    L_SOLD: 30,  # naranja
+    L_HACH: 8,  # gris
+    L_TABLA: 7,  # blanco
+    L_OCULTO: 8,  # gris
 }
 
 # -----------------------------------------------------------------------
@@ -63,9 +63,9 @@ class Circle:
 class Arc:
     c: PT
     r: float
-    a1: float          # ángulo inicial (grados)
-    a2: float          # ángulo final (grados)
-    ccw: bool = True   # barrido antihorario de a1 -> a2
+    a1: float  # ángulo inicial (grados)
+    a2: float  # ángulo final (grados)
+    ccw: bool = True  # barrido antihorario de a1 -> a2
     layer: str = L_ACERO
 
 
@@ -80,6 +80,7 @@ class Poly:
 @dataclass
 class Filled:
     """Polígono relleno: flechas de cota, puntos de barra, símbolos."""
+
     pts: List[PT]
     layer: str = L_ACOT
 
@@ -88,30 +89,32 @@ class Filled:
 class Text:
     pos: PT
     s: str
-    h: float                       # altura (en mm de modelo, ya escalada)
-    rot: float = 0.0               # grados antihorario
+    h: float  # altura (en mm de modelo, ya escalada)
+    rot: float = 0.0  # grados antihorario
     layer: str = L_TXT
-    ha: str = "c"                  # 'l' | 'c' | 'r'
-    va: str = "m"                  # 'b' | 'm' | 't'
+    ha: str = "c"  # 'l' | 'c' | 'r'
+    va: str = "m"  # 'b' | 'm' | 't'
 
 
 @dataclass
 class Dim:
     """Cota lineal asociativa. p1/p2 sobre la geometría, `base` sobre la
     línea de cota. vertical=False -> cota horizontal."""
+
     p1: PT
     p2: PT
     base: PT
     vertical: bool = False
     layer: str = L_ACOT
-    txt: Optional[str] = None      # texto ya formateado (unidades incluidas)
-    text_height: float = 0.0       # altura propia; 0 conserva lectura legacy
+    txt: Optional[str] = None  # texto ya formateado (unidades incluidas)
+    text_height: float = 0.0  # altura propia; 0 conserva lectura legacy
 
 
 @dataclass
 class Leader:
     """Línea de referencia: flecha en `tip`, codo en `elbow`, texto encima
     de un shelf horizontal de longitud `shelf` hacia `side` (+1 derecha)."""
+
     tip: PT
     elbow: PT
     s: str
@@ -126,15 +129,16 @@ class Table:
     """Tabla genérica. `pos` = esquina superior izquierda.
     sketches[(fila, col)] = lista de entidades IR con origen relativo al
     centro de la celda (para dibujos de forma en el cuadro de despiece)."""
+
     pos: PT
     col_w: List[float]
     row_h: float
     header: List[str] = field(default_factory=list)
     rows: List[List[str]] = field(default_factory=list)
     title: str = ""
-    h_row: float = 0.0             # altura de texto celdas (0 -> auto)
+    h_row: float = 0.0  # altura de texto celdas (0 -> auto)
     sketches: dict = field(default_factory=dict)
-    title_boxed: bool = False      # título dentro de una fila superior común
+    title_boxed: bool = False  # título dentro de una fila superior común
     col_align: List[str] = field(default_factory=list)
 
 
@@ -145,6 +149,7 @@ class Drawing:
 
 
 # ------------------------------------------------------------- utilidades ---
+
 
 def add(d: Drawing, *ents) -> None:
     d.ents.extend(ents)
@@ -165,17 +170,16 @@ def fmt_cm(v_mm: float, dec: int = 1) -> str:
     return f"{v_mm / 10.0:.{dec}f}"
 
 
-def rect(x0: float, y0: float, x1: float, y1: float,
-         layer: str = L_CONC) -> "Poly":
+def rect(x0: float, y0: float, x1: float, y1: float, layer: str = L_CONC) -> "Poly":
     """Rectángulo por esquinas opuestas."""
-    return Poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
-                closed=True, layer=layer)
+    return Poly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=True, layer=layer)
 
 
 def translate(dwg: Drawing, dx: float, dy: float) -> Drawing:
     """Devuelve una copia de `dwg` con todas las entidades desplazadas
     (dx, dy) mm. Usado para ubicar el dibujo en un punto elegido por el
     usuario (p.ej. un clic en pantalla dentro del CAD) antes de enviarlo."""
+
     def tp(p: PT) -> PT:
         return (p[0] + dx, p[1] + dy)
 
@@ -193,16 +197,22 @@ def translate(dwg: Drawing, dx: float, dy: float) -> Drawing:
         if isinstance(e, Text):
             return Text(tp(e.pos), e.s, e.h, e.rot, e.layer, e.ha, e.va)
         if isinstance(e, Dim):
-            return Dim(tp(e.p1), tp(e.p2), tp(e.base), e.vertical, e.layer,
-                       e.txt, e.text_height)
+            return Dim(tp(e.p1), tp(e.p2), tp(e.base), e.vertical, e.layer, e.txt, e.text_height)
         if isinstance(e, Leader):
-            return Leader(tp(e.tip), tp(e.elbow), e.s, e.h, e.layer,
-                         e.shelf, e.side)
+            return Leader(tp(e.tip), tp(e.elbow), e.s, e.h, e.layer, e.shelf, e.side)
         if isinstance(e, Table):
-            return Table(tp(e.pos), list(e.col_w), e.row_h,
-                        list(e.header), [list(r) for r in e.rows],
-                        e.title, e.h_row, dict(e.sketches), e.title_boxed,
-                        list(e.col_align))
+            return Table(
+                tp(e.pos),
+                list(e.col_w),
+                e.row_h,
+                list(e.header),
+                [list(r) for r in e.rows],
+                e.title,
+                e.h_row,
+                dict(e.sketches),
+                e.title_boxed,
+                list(e.col_align),
+            )
         return e
 
     return Drawing(dwg.title, [te(e) for e in dwg.ents])

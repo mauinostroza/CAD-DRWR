@@ -53,7 +53,7 @@ function CampoNumero({ id, campo, valor, off, onElegir }: CampoNumeroProps) {
           disabled={off}
           aria-invalid={fuera || undefined}
           aria-describedby={fuera ? errorId : undefined}
-          onChange={(e) => {
+          onChange={e => {
             const t = e.target.value
             setBorrador({ de: valor, texto: t })
             const n = aNumero(t)
@@ -70,8 +70,7 @@ function CampoNumero({ id, campo, valor, off, onElegir }: CampoNumeroProps) {
       </div>
       {fuera && (
         <p id={errorId} className="cad-error" role="alert">
-          Valor fuera de rango: debe estar entre {campo.min} y {campo.max}. Se ajustará al salir del
-          campo.
+          Valor fuera de rango: debe estar entre {campo.min} y {campo.max}. Se ajustará al salir del campo.
         </p>
       )}
     </>
@@ -90,15 +89,13 @@ export function Formulario({ modulo, valores, onCambio, deshabilitado = false }:
 
   const cambiar = (campo: string, valor: ParamValor) => {
     onCambio(
-      conReglas
-        ? aplicarCambio(modulo.id, valores, campo, valor, valores)
-        : { ...valores, [campo]: valor },
+      conReglas ? aplicarCambio(modulo.id, valores, campo, valor, valores) : { ...valores, [campo]: valor },
     )
   }
 
   return (
     <div className="cad-formulario" role="group" aria-label={`Parámetros de ${modulo.nombre}`}>
-      {modulo.campos.map((campo) => {
+      {modulo.campos.map(campo => {
         const id = `${prefijo}-${campo.key}`
         const off = deshabilitado || reglas[campo.key] === false
         const actual = valores[campo.key] ?? campo.value
@@ -112,7 +109,7 @@ export function Formulario({ modulo, valores, onCambio, deshabilitado = false }:
               opciones={campo.options}
               valor={String(actual)}
               off={off}
-              onElegir={(v) => cambiar(campo.key, v)}
+              onElegir={v => cambiar(campo.key, v)}
             />
           )
         }
@@ -124,7 +121,7 @@ export function Formulario({ modulo, valores, onCambio, deshabilitado = false }:
               etiqueta={campo.label}
               valor={Boolean(actual)}
               off={off}
-              onElegir={(v) => cambiar(campo.key, v)}
+              onElegir={v => cambiar(campo.key, v)}
             />
           )
         }
@@ -135,7 +132,7 @@ export function Formulario({ modulo, valores, onCambio, deshabilitado = false }:
             campo={campo}
             valor={Number(actual)}
             off={off}
-            onElegir={(v) => cambiar(campo.key, v)}
+            onElegir={v => cambiar(campo.key, v)}
           />
         )
       })}
@@ -155,8 +152,8 @@ function FilaCombo(props: {
   return (
     <>
       <label htmlFor={id}>{etiqueta}</label>
-      <select id={id} value={valor} disabled={off} onChange={(e) => onElegir(e.target.value)}>
-        {opciones.map((o) => (
+      <select id={id} value={valor} disabled={off} onChange={e => onElegir(e.target.value)}>
+        {opciones.map(o => (
           <option key={o} value={o}>
             {o}
           </option>
@@ -182,7 +179,7 @@ function FilaCheck(props: {
         type="checkbox"
         checked={valor}
         disabled={off}
-        onChange={(e) => onElegir(e.target.checked)}
+        onChange={e => onElegir(e.target.checked)}
       />
     </>
   )

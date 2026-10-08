@@ -35,11 +35,7 @@ export function claveEstable(valor: unknown): string {
   return JSON.stringify(ordenar(valor))
 }
 
-function guardarEnCache(
-  cache: Map<string, DibujoRespuesta>,
-  clave: string,
-  dibujo: DibujoRespuesta,
-): void {
+function guardarEnCache(cache: Map<string, DibujoRespuesta>, clave: string, dibujo: DibujoRespuesta): void {
   cache.delete(clave)
   cache.set(clave, dibujo)
   while (cache.size > CACHE_MAX) {
@@ -84,11 +80,11 @@ export function useDibujo(
       return
     }
     const control = new AbortController()
-    setEstado((s) => ({ ...s, cargando: true, error: null }))
+    setEstado(s => ({ ...s, cargando: true, error: null }))
     const espera = setTimeout(() => {
       const inicio = performance.now()
       pedirDibujo(modulo, params, lamina, control.signal).then(
-        (dibujo) => {
+        dibujo => {
           if (control.signal.aborted) return
           guardarEnCache(almacen, clave, dibujo)
           setEstado({
@@ -100,7 +96,7 @@ export function useDibujo(
         },
         (e: unknown) => {
           if (control.signal.aborted) return
-          setEstado((s) => ({ ...s, cargando: false, error: mensajeError(e) }))
+          setEstado(s => ({ ...s, cargando: false, error: mensajeError(e) }))
         },
       )
     }, DEBOUNCE_MS)

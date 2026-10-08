@@ -59,8 +59,9 @@ def _number(params, names, default):
 
 
 def _nominal(params):
-    raw = params.get("d_nominal", params.get("nominal_d",
-                          params.get("nominal", params.get("diam_nominal", ""))))
+    raw = params.get(
+        "d_nominal", params.get("nominal_d", params.get("nominal", params.get("diam_nominal", "")))
+    )
     if isinstance(raw, bool):
         return '1 in' if raw else ''
     txt = str(raw).strip().lower()
@@ -116,25 +117,31 @@ def pg_spec_from_params(params: dict, *, validate: bool = True) -> PGSpec:
     tipo_hilo = str(params.get("tipo_hilo", "8UN"))
     display = '1"' if nominal == '1 in' else f'{d:g}'
 
-    spec = PGSpec(d, display, tipo_hilo, h1, h2, W, t, b, R, P, L, n,
-                  material, nominal)
+    spec = PGSpec(d, display, tipo_hilo, h1, h2, W, t, b, R, P, L, n, material, nominal)
     if validate:
-        validate_pg_spec(spec, allow_h1_below_tc=bool(
-            params.get("permitir_h1_bajo_tc", params.get("allow_h1_below_tc", False))))
+        validate_pg_spec(
+            spec,
+            allow_h1_below_tc=bool(params.get("permitir_h1_bajo_tc", params.get("allow_h1_below_tc", False))),
+        )
     return spec
 
 
 def validate_pg_spec(spec: PGSpec, *, allow_h1_below_tc: bool = False):
     """Valida cotas que afectan a la posición de piezas del PG."""
-    finite = (spec.d_mm, spec.h1, spec.h2, spec.W, spec.t, spec.b,
-              spec.R, spec.P, spec.L)
+    finite = (spec.d_mm, spec.h1, spec.h2, spec.W, spec.t, spec.b, spec.R, spec.P, spec.L)
     if not all(math.isfinite(v) for v in finite):
         raise PGSpecError("los parámetros PG deben ser finitos")
     if spec.d_mm <= 0:
         raise PGSpecError("d debe ser mayor que cero")
-    for label, value in (("R", spec.R), ("P", spec.P), ("h1", spec.h1),
-                         ("h2", spec.h2), ("W", spec.W), ("t", spec.t),
-                         ("b", spec.b)):
+    for label, value in (
+        ("R", spec.R),
+        ("P", spec.P),
+        ("h1", spec.h1),
+        ("h2", spec.h2),
+        ("W", spec.W),
+        ("t", spec.t),
+        ("b", spec.b),
+    ):
         if value <= 0:
             raise PGSpecError(f"{label} debe ser mayor que cero")
     if spec.n <= 0:

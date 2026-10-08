@@ -150,7 +150,7 @@ const EntidadSvg = memo(function EntidadSvg({ ent }: { ent: EntRender }): ReactE
     }
     case 'filled': {
       if (ent.p.length === 0) return null
-      const puntos = ent.p.map((p) => `${p[0]},${p[1]}`).join(' ')
+      const puntos = ent.p.map(p => `${p[0]},${p[1]}`).join(' ')
       return <polygon points={puntos} fill={color} stroke="none" />
     }
     case 'text': {
@@ -239,7 +239,7 @@ export function VistaSvg({
       const delta = -dy / PX_POR_MUESCA
       const px = e.clientX - r.left
       const py = e.clientY - r.top
-      setVista((v) => zoomHaciaCursor(v, delta, px, py, r.width, r.height))
+      setVista(v => zoomHaciaCursor(v, delta, px, py, r.width, r.height))
     }
     el.addEventListener('wheel', alRueda, { passive: false })
     return () => el.removeEventListener('wheel', alRueda)
@@ -290,7 +290,7 @@ export function VistaSvg({
         const dyPx = e.clientY - a.uy
         a.ux = e.clientX
         a.uy = e.clientY
-        setVista((v) => ({ ...v, cx: v.cx - dxPx / v.escala, cy: v.cy + dyPx / v.escala }))
+        setVista(v => ({ ...v, cx: v.cx - dxPx / v.escala, cy: v.cy + dyPx / v.escala }))
       }
     }
     const { px, py, ancho, alto } = localDe(e)
@@ -370,9 +370,7 @@ export function VistaSvg({
     <div
       ref={contenedor}
       className={
-        'vista-svg' +
-        (arrastrando ? ' vista-svg--arrastrando' : '') +
-        (modoMedir ? ' vista-svg--medir' : '')
+        'vista-svg' + (arrastrando ? ' vista-svg--arrastrando' : '') + (modoMedir ? ' vista-svg--medir' : '')
       }
     >
       <svg

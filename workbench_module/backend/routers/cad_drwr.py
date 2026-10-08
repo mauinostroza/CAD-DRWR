@@ -19,8 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from backend.auth import require_user
 from backend.motor_calculo.cad_drwr import serializar
 from backend.motor_calculo.cad_drwr.generators import MODULOS, campos, defaults
-from backend.motor_calculo.cad_drwr.servicio import (
-    MAX_PUNTOS, MAX_ZAPATAS, ErrorDibujo, construir, solapes)
+from backend.motor_calculo.cad_drwr.servicio import MAX_PUNTOS, MAX_ZAPATAS, ErrorDibujo, construir, solapes
 
 router = APIRouter(prefix="/cad_drwr", tags=["cad_drwr"], dependencies=[Depends(require_user)])
 
@@ -60,6 +59,7 @@ class LoteIn(_Base):
 def _ezdxf_ok() -> bool:
     try:
         import ezdxf  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -73,8 +73,7 @@ def _construir(modulo, params, lamina):
 
 
 def _clave(modulo, params, lamina):
-    raw = json.dumps([modulo, params, lamina.model_dump() if lamina else None],
-                     sort_keys=True, default=str)
+    raw = json.dumps([modulo, params, lamina.model_dump() if lamina else None], sort_keys=True, default=str)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -86,15 +85,27 @@ def estado() -> dict:
         "detalle": "" if dxf else "Falta ezdxf: la vista previa funciona, la exportación DXF no.",
         "motor": MOTOR_ID,
         "dxf": dxf,
-        "limites": {"entidades": serializar.MAX_ENTIDADES, "zapatas": MAX_ZAPATAS,
-                    "puntos": MAX_PUNTOS, "lote_zip": MAX_LOTE},
+        "limites": {
+            "entidades": serializar.MAX_ENTIDADES,
+            "zapatas": MAX_ZAPATAS,
+            "puntos": MAX_PUNTOS,
+            "lote_zip": MAX_LOTE,
+        },
     }
 
 
 @router.get("/modulos")
 def modulos() -> list[dict]:
-    return [{"id": m.id, "nombre": m.nombre, "campos": campos(m.spec),
-             "defaults": defaults(m), "interactivo": m.interactivo} for m in MODULOS]
+    return [
+        {
+            "id": m.id,
+            "nombre": m.nombre,
+            "campos": campos(m.spec),
+            "defaults": defaults(m),
+            "interactivo": m.interactivo,
+        }
+        for m in MODULOS
+    ]
 
 
 @router.post("/dibujo")
@@ -116,6 +127,7 @@ def _dxf_bytes(dwg) -> bytes:
     if not _ezdxf_ok():
         raise HTTPException(503, "Falta ezdxf en el servidor: no se puede exportar DXF.")
     from backend.motor_calculo.cad_drwr.dxf_out import write_dxf
+
     with tempfile.TemporaryDirectory() as tmp:
         ruta = Path(tmp) / "dibujo.dxf"
         write_dxf(dwg, str(ruta))
@@ -125,8 +137,11 @@ def _dxf_bytes(dwg) -> bytes:
 @router.post("/dxf")
 def dxf(datos: DibujoIn) -> Response:
     dwg, _ = _construir(datos.modulo, datos.params, datos.lamina)
-    return Response(_dxf_bytes(dwg), media_type="application/dxf",
-                    headers={"Content-Disposition": f'attachment; filename="{datos.modulo}.dxf"'})
+    return Response(
+        _dxf_bytes(dwg),
+        media_type="application/dxf",
+        headers={"Content-Disposition": f'attachment; filename="{datos.modulo}.dxf"'},
+    )
 
 
 @router.post("/dxf-lote")
@@ -136,12 +151,14 @@ def dxf_lote(datos: LoteIn) -> Response:
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for it in datos.items:
             try:
-                dwg, _ = construir(it.modulo, it.params,
-                                   datos.lamina.model_dump() if datos.lamina else None)
+                dwg, _ = construir(it.modulo, it.params, datos.lamina.model_dump() if datos.lamina else None)
                 zf.writestr(f"{it.modulo}.dxf", _dxf_bytes(dwg))
             except ErrorDibujo as exc:
                 errores.append(f"{it.modulo}: {exc}")
         if errores:
             zf.writestr("ERRORES.txt", "\n".join(errores))
-    return Response(buf.getvalue(), media_type="application/zip",
-                    headers={"Content-Disposition": 'attachment; filename="detalles_dxf.zip"'})
+    return Response(
+        buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="detalles_dxf.zip"'},
+    )

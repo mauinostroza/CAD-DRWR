@@ -16,13 +16,7 @@ import {
   type Vista,
 } from './geometria'
 
-const arco = (
-  a1: number,
-  a2: number,
-  ccw: boolean,
-  c: [number, number] = [0, 0],
-  r = 10,
-): EntArco => ({
+const arco = (a1: number, a2: number, ccw: boolean, c: [number, number] = [0, 0], r = 10): EntArco => ({
   t: 'arc',
   c,
   r,

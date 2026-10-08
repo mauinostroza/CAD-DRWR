@@ -3,13 +3,13 @@
 
 # Perfiles W (dimensiones nominales en mm) — AISC/CISC métrico
 W_DB = {
-    "W150X24":  dict(d=162, bf=154, tw=6.6, tf=9.1),
-    "W200X22":  dict(d=203, bf=102, tw=6.2, tf=8.4),
-    "W250X25":  dict(d=257, bf=101, tw=5.8, tf=8.4),
-    "W310X39":  dict(d=310, bf=165, tw=5.8, tf=10.2),
-    "W360X45":  dict(d=356, bf=127, tw=7.5, tf=11.9),
-    "W410X46":  dict(d=404, bf=140, tw=6.4, tf=11.6),
-    "W530X66":  dict(d=533, bf=165, tw=7.5, tf=13.5),
+    "W150X24": dict(d=162, bf=154, tw=6.6, tf=9.1),
+    "W200X22": dict(d=203, bf=102, tw=6.2, tf=8.4),
+    "W250X25": dict(d=257, bf=101, tw=5.8, tf=8.4),
+    "W310X39": dict(d=310, bf=165, tw=5.8, tf=10.2),
+    "W360X45": dict(d=356, bf=127, tw=7.5, tf=11.9),
+    "W410X46": dict(d=404, bf=140, tw=6.4, tf=11.6),
+    "W530X66": dict(d=533, bf=165, tw=7.5, tf=13.5),
 }
 
 # Perfiles H (HEA aproximado)

@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import type { DibujoRespuesta } from './api'
 import EnvioCadDialog from './EnvioCadDialog'
 import {
@@ -12,7 +12,9 @@ import {
   type ResumenEnvio,
 } from './bridgeCad'
 
-vi.mock('./bridgeCad', async (importOriginal) => {
+afterEach(cleanup)
+
+vi.mock('./bridgeCad', async importOriginal => {
   const real = await importOriginal<typeof import('./bridgeCad')>()
   return {
     ...real,
@@ -81,9 +83,7 @@ describe('EnvioCadDialog', () => {
     render(<EnvioCadDialog dibujo={dibujo(10)} nombre="Z1" onCerrar={() => undefined} />)
 
     expect(
-      await screen.findByText(
-        /Abra SAP2000Bridge y use el emparejamiento del módulo SAP2000 del Workbench/,
-      ),
+      await screen.findByText(/Abra SAP2000Bridge y use el emparejamiento del módulo SAP2000 del Workbench/),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
     expect(estadoCad).not.toHaveBeenCalled()
@@ -101,9 +101,9 @@ describe('EnvioCadDialog', () => {
 
   it('flujo feliz: espera de clic, progreso real y resumen', async () => {
     let darClic!: () => void
-    const clic = new Promise<void>((r) => (darClic = r))
+    const clic = new Promise<void>(r => (darClic = r))
     let terminar!: () => void
-    const fin = new Promise<void>((r) => (terminar = r))
+    const fin = new Promise<void>(r => (terminar = r))
     vi.mocked(enviarDibujo).mockImplementation(async (_c, _d, op) => {
       op.onEstado?.({ fase: 'esperando_clic', hechas: 0, total: 1000, mensaje: '' })
       await clic

@@ -36,8 +36,8 @@ export function aSvg(dibujo: DibujoJson, opciones: OpcionesSvg = {}): string {
   const vy = -(y1 + margen) // coordenadas tras el flip de Y
 
   const contenido = dibujo.render
-    .filter((e) => !ocultas.has(e.l))
-    .map((e) => elemento(e, fondo))
+    .filter(e => !ocultas.has(e.l))
+    .map(e => elemento(e, fondo))
     .join('')
   const fondoRect = fondo === 'claro' ? '#ffffff' : FONDO_VISOR
 
@@ -56,10 +56,7 @@ function elemento(e: EntRender, fondo: Fondo): string {
   const trazo = (anchoPx: number): string => {
     const w = anchoPx * PX_A_MM
     const d = dashArray(e.l, w)
-    return (
-      `fill="none" stroke="${color}" stroke-width="${num(w)}"` +
-      (d ? ` stroke-dasharray="${d}"` : '')
-    )
+    return `fill="none" stroke="${color}" stroke-width="${num(w)}"` + (d ? ` stroke-dasharray="${d}"` : '')
   }
   switch (e.t) {
     case 'line':
@@ -79,7 +76,7 @@ function elemento(e: EntRender, fondo: Fondo): string {
       return `<path d="${pathPoligono(e.p, e.z)}" ${trazo(anchoTrazoPx(e.l, e.w))}/>`
     case 'filled':
       if (e.p.length === 0) return ''
-      return `<polygon points="${e.p.map((p) => `${num(p[0])},${num(p[1])}`).join(' ')}" fill="${color}" stroke="none"/>`
+      return `<polygon points="${e.p.map(p => `${num(p[0])},${num(p[1])}`).join(' ')}" fill="${color}" stroke="none"/>`
     case 'text': {
       if (!(e.h > 0)) return ''
       const an = anclajeTexto(e.ha, e.va)
@@ -120,10 +117,7 @@ export async function aPngBlob(svg: string, anchoPx: number): Promise<Blob> {
     if (!ctx) throw new Error('Canvas 2D no disponible')
     ctx.drawImage(img, 0, 0, ancho, alto)
     return await new Promise<Blob>((resolver, rechazar) => {
-      lienzo.toBlob(
-        (b) => (b ? resolver(b) : rechazar(new Error('No se pudo generar el PNG'))),
-        'image/png',
-      )
+      lienzo.toBlob(b => (b ? resolver(b) : rechazar(new Error('No se pudo generar el PNG'))), 'image/png')
     })
   } finally {
     URL.revokeObjectURL(url)

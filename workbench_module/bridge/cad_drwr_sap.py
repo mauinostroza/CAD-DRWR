@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 bridge.cad_drwr_sap — Rutas del puente local para leer fundaciones de SAP2000.
 
@@ -30,26 +29,32 @@ import json
 import threading
 import time
 import uuid
-from typing import Annotated, Optional
+from typing import Annotated
 
+from bridge.cad_drwr import _RutaCad
+from bridge.cad_sap_link import (
+    ControlTrabajo,
+    ModelLink,
+    TrabajoCancelado,
+    leer_fundacion,
+    listar_grupos,
+    miembros_de_grupo,
+)
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from bridge.cad_drwr import _RutaCad
-from bridge.cad_sap_link import (ControlTrabajo, ModelLink, TrabajoCancelado,
-                                 leer_fundacion, listar_grupos,
-                                 miembros_de_grupo)
-
 PREFIJO = "/v1/sap/actions/cad/sap"
 
-TTL_TRABAJO_S = 600.0          # un trabajo terminado se conserva 10 min
-ESPERA_TIMEOUT_S = 600.0       # espera del hilo de fondo tras vencer el actor
+TTL_TRABAJO_S = 600.0  # un trabajo terminado se conserva 10 min
+ESPERA_TIMEOUT_S = 600.0  # espera del hilo de fondo tras vencer el actor
 MAX_GRUPO = 128
 MAX_JOB = 64
 
-MENSAJE_SIN_RESPUESTA = ("SAP2000 no respondió a tiempo (30 s). La operación "
-                         "puede seguir en curso en SAP2000; reintente en un "
-                         "momento.")
+MENSAJE_SIN_RESPUESTA = (
+    "SAP2000 no respondió a tiempo (30 s). La operación "
+    "puede seguir en curso en SAP2000; reintente en un "
+    "momento."
+)
 MENSAJE_EN_CURSO = "Ya hay una lectura de SAP2000 en curso"
 MENSAJE_NO_EXISTE = "El trabajo no existe o venció"
 
@@ -57,6 +62,7 @@ _CFG = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 # ----------------------------------------------------------- modelos --
+
 
 class VacioIn(BaseModel):
     model_config = _CFG
@@ -73,6 +79,7 @@ class JobIn(BaseModel):
 
 
 # ------------------------------------------------------------ ayudas --
+
 
 def _texto(exc: BaseException) -> str:
     """Texto real de la excepción; RuntimeError ya trae mensaje en español."""
@@ -94,6 +101,7 @@ def _llamar(call, fn):
 
 
 # ------------------------------------------------------------ trabajo --
+
 
 class Trabajo:
     """Una lectura de un grupo de SAP2000 en curso o terminada."""
@@ -131,8 +139,7 @@ class Trabajo:
             try:
                 json.dumps(dic, allow_nan=False)
             except (TypeError, ValueError) as exc:
-                self.cerrar("error",
-                            error=f"El resultado no es JSON válido: {exc}")
+                self.cerrar("error", error=f"El resultado no es JSON válido: {exc}")
                 return
             if self.control.cancelado:
                 self.cerrar("cancelado")
@@ -176,8 +183,8 @@ def _correr(trabajo: Trabajo, call) -> None:
         trabajo.control.cancelar()
         trabajo.cerrar(
             "error",
-            error=(f"La lectura de SAP2000 no terminó en "
-                   f"{ESPERA_TIMEOUT_S:g} s; se pidió cancelarla."))
+            error=(f"La lectura de SAP2000 no terminó en {ESPERA_TIMEOUT_S:g} s; se pidió cancelarla."),
+        )
 
 
 class _Trabajos:
@@ -201,8 +208,7 @@ class _Trabajos:
                 raise HTTPException(409, MENSAJE_EN_CURSO)
             trabajo = Trabajo(grupo)
             self._trabajos[trabajo.id] = trabajo
-        hilo = threading.Thread(target=_correr, args=(trabajo, call),
-                                name="sap-cad-lectura", daemon=True)
+        hilo = threading.Thread(target=_correr, args=(trabajo, call), name="sap-cad-lectura", daemon=True)
         hilo.start()
         return trabajo.id
 
@@ -217,6 +223,7 @@ class _Trabajos:
 
 # ------------------------------------------------------------- rutas --
 
+
 def install_routes(app, call):
     """Monta las rutas SAP del puente CAD en `app`, usando `call` (el actor
     STA del puente anfitrión). Devuelve el registro de trabajos."""
@@ -224,7 +231,7 @@ def install_routes(app, call):
     router = APIRouter(route_class=_RutaCad)
 
     @router.post(PREFIJO + "/groups")
-    def sap_groups(body: Optional[VacioIn] = None):
+    def sap_groups(body: VacioIn | None = None):
         def fn(model):
             link = ModelLink(model, ControlTrabajo())
             grupos = []
@@ -232,10 +239,11 @@ def install_routes(app, call):
                 try:
                     n = len(miembros_de_grupo(link, nombre)["shells"])
                 except Exception:
-                    continue          # un grupo que falla no tumba la lista
+                    continue  # un grupo que falla no tumba la lista
                 if n > 0:
                     grupos.append({"nombre": nombre, "n_shells": n})
             return {"grupos": grupos}
+
         return _llamar(call, fn)
 
     @router.post(PREFIJO + "/foundation/start")
@@ -251,9 +259,7 @@ def install_routes(app, call):
         t = trabajos.obtener(body.job)
         with t._lock:
             if t.terminado.is_set():
-                raise HTTPException(
-                    409, f"El trabajo ya terminó (estado: {t.estado}); "
-                         "no se puede cancelar")
+                raise HTTPException(409, f"El trabajo ya terminó (estado: {t.estado}); no se puede cancelar")
             t.control.cancelar()
         return {"cancelado": True}
 

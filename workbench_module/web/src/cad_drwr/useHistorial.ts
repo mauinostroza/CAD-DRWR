@@ -32,11 +32,10 @@ export function useHistorial<T>(inicial: T, max = 50): Historial<T> {
 
   const fijar = useCallback(
     (v: T, origen?: string) => {
-      setPila((p) => {
+      setPila(p => {
         if (Object.is(v, p.present)) return p
         const ahora = Date.now()
-        const agrupa =
-          origen !== undefined && origen === p.origen && ahora - p.ultimo < VENTANA_AGRUPADO_MS
+        const agrupa = origen !== undefined && origen === p.origen && ahora - p.ultimo < VENTANA_AGRUPADO_MS
         if (agrupa) return { ...p, present: v, future: [], ultimo: ahora }
         const past = [...p.past, p.present]
         if (past.length > max) past.splice(0, past.length - max)
@@ -47,7 +46,7 @@ export function useHistorial<T>(inicial: T, max = 50): Historial<T> {
   )
 
   const deshacer = useCallback(() => {
-    setPila((p) => {
+    setPila(p => {
       if (p.past.length === 0) return p
       return {
         past: p.past.slice(0, -1),
@@ -60,7 +59,7 @@ export function useHistorial<T>(inicial: T, max = 50): Historial<T> {
   }, [])
 
   const rehacer = useCallback(() => {
-    setPila((p) => {
+    setPila(p => {
       if (p.future.length === 0) return p
       return {
         past: [...p.past, p.present],

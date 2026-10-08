@@ -12,8 +12,7 @@ import math
 from .data import DIAM_BARRAS, ESCALAS
 from ..core import ir
 from ..core.ir import Line, Poly, Circle, Text
-from ..core.geom import (hatch_poly, poly_bar, stirrup_pts, level_symbol,
-                         break_line, line_x, line_y)
+from ..core.geom import hatch_poly, poly_bar, stirrup_pts, level_symbol, break_line, line_x, line_y
 from ..core.dims import DimBuilder
 from ..core.tables import cuadro_despiece, fila_barra, peso_barra
 from ..core.bounds import drawing_bounds
@@ -26,8 +25,13 @@ SPEC = [
     ("H", "Altura pedestal (cm)", "float", 30, 600, 250, 1, 10, ""),
     ("r", "Recubrimiento (cm)", "float", 2, 10, 4, 1, 0.5, ""),
     ("n_barras", "Nº barras long.", "combo", ["4", "6", "8", "10", "12"], "8"),
-    ("preset", "Distribución longitudinal", "combo",
-     ["Total anterior", "Por caras", "Referencia 20"], "Total anterior"),
+    (
+        "preset",
+        "Distribución longitudinal",
+        "combo",
+        ["Total anterior", "Por caras", "Referencia 20"],
+        "Total anterior",
+    ),
     ("n_sup", "Barras superiores (incl. esquinas)", "int", 2, 20, 7, 1, ""),
     ("n_inf", "Barras inferiores (incl. esquinas)", "int", 2, 20, 7, 1, ""),
     ("n_izq", "Barras intermedias izquierda", "int", 0, 18, 3, 1, ""),
@@ -69,17 +73,14 @@ def _bar_layout(p: dict, n: int) -> dict:
             vals = tuple(int(v) for v in explicit)
             if len(vals) != 4 or min(vals) < 0 or min(vals[:2]) < 2:
                 raise ValueError
-            return dict(top=vals[0], bottom=vals[1],
-                        left=vals[2], right=vals[3])
+            return dict(top=vals[0], bottom=vals[1], left=vals[2], right=vals[3])
         except (TypeError, ValueError):
             raise ValueError("barras_por_cara debe ser [top, bottom, left, right]")
 
     preset = str(p.get("preset", p.get("distribucion", ""))).strip().lower()
     if preset == "por caras":
-        return _bar_layout({"barras_por_cara": [p["n_sup"], p["n_inf"],
-                                               p["n_izq"], p["n_der"]]}, n)
-    if preset in {"referencia 20", "referencia", "ejemplo", "ejemplo 20",
-                  "ref20", "20"}:
+        return _bar_layout({"barras_por_cara": [p["n_sup"], p["n_inf"], p["n_izq"], p["n_der"]]}, n)
+    if preset in {"referencia 20", "referencia", "ejemplo", "ejemplo 20", "ref20", "20"}:
         return {"top": 7, "bottom": 7, "left": 3, "right": 3}
 
     if n < 4 or n % 2:
@@ -92,8 +93,7 @@ def _perimeter_bars(x0: float, y0: float, layout: dict) -> list:
     out = []
 
     def add(p):
-        if not any(abs(p[0] - q[0]) < 1e-7 and abs(p[1] - q[1]) < 1e-7
-                   for q in out):
+        if not any(abs(p[0] - q[0]) < 1e-7 and abs(p[1] - q[1]) < 1e-7 for q in out):
             out.append(p)
 
     for count, y in ((layout["top"], y0), (layout["bottom"], -y0)):
@@ -113,13 +113,10 @@ def _outer_stirrup(B: float, H: float, R: float, ds: float):
     return ([(x - B / 2 + eje, y - H / 2 + eje) for x, y in pts], w, h)
 
 
-def _interior_tie_paths(p: dict, B: float, H: float, R: float, ds: float,
-                        layout: dict) -> list:
+def _interior_tie_paths(p: dict, B: float, H: float, R: float, ds: float, layout: dict) -> list:
     """Lazos centrales que abrazan las barras intermedias de cada dirección."""
     preset = str(p.get("preset", p.get("distribucion", ""))).lower()
-    reference = preset in {
-        "referencia", "referencia 20", "ejemplo", "ejemplo 20", "ref20", "20"
-    }
+    reference = preset in {"referencia", "referencia 20", "ejemplo", "ejemplo 20", "ref20", "20"}
     enabled = bool(p.get("lazos_interiores", reference))
     if not enabled:
         return []
@@ -165,13 +162,15 @@ def _interior_tie_paths(p: dict, B: float, H: float, R: float, ds: float,
 # -------------------------------------------------------------- generador --
 def build_pedestal(p: dict) -> ir.Drawing:
     d = ir.Drawing()
-    if any(not math.isfinite(float(p.get(key, default))) or float(p.get(key, default)) <= 0
-           for key, default in (("fc", 21), ("fy", 420))):
+    if any(
+        not math.isfinite(float(p.get(key, default))) or float(p.get(key, default)) <= 0
+        for key, default in (("fc", 21), ("fy", 420))
+    ):
         raise ValueError("Las resistencias de materiales deben ser positivas y finitas")
     f = p.get("_escala", 2.5)
     th = 5.0 * f
-    B, H = p["b"] * 10.0, p["h"] * 10.0        # sección en mm
-    R = p["r"] * 10.0                          # recubrimiento en mm
+    B, H = p["b"] * 10.0, p["h"] * 10.0  # sección en mm
+    R = p["r"] * 10.0  # recubrimiento en mm
     db_d = float(p["d_barra"])
     ds = float(p["d_estribo"])
     n = int(p.get("n_barras", 8) or 0)
@@ -186,8 +185,7 @@ def build_pedestal(p: dict) -> ir.Drawing:
         raise ValueError("La sección no permite el recubrimiento y los diámetros ingresados")
     layout = _bar_layout(p, n)
     bars = _perimeter_bars(x0, y0, layout)
-    if any(math.dist(a, b) < db_d + 1e-6
-           for i, a in enumerate(bars) for b in bars[i + 1:]):
+    if any(math.dist(a, b) < db_d + 1e-6 for i, a in enumerate(bars) for b in bars[i + 1 :]):
         raise ValueError("Las barras longitudinales se tocan o superponen; revise cantidades y sección")
     arranque_xs = sorted({x for x, y in bars})
     _b1_length(p)
@@ -221,15 +219,35 @@ def build_pedestal(p: dict) -> ir.Drawing:
         dbb.v_chain(ys, x, sign * (B / 2 + 3 * th))
     dbb.h_total(-B / 2, B / 2, H / 2, H / 2 + 6 * th)
     dbb.v_total(-H / 2, H / 2, B / 2, B / 2 + 6 * th)
-    d.ents.append(Text((0, H / 2 + 10 * th),
-                        f"SECCIÓN SOBRE TRASLAPE — {len(bars)}Ø{db_d:g}", 1.3 * th,
-                        layer=ir.L_TXT, va="b"))
+    d.ents.append(
+        Text(
+            (0, H / 2 + 10 * th),
+            f"SECCIÓN SOBRE TRASLAPE — {len(bars)}Ø{db_d:g}",
+            1.3 * th,
+            layer=ir.L_TXT,
+            va="b",
+        )
+    )
     # Las flechas terminan en las familias que describen, nunca en un eje vacío.
-    d.ents.append(ir.Leader((-x0, y0), (-B / 2 - 10 * th, H / 2 + 5 * th),
-                            f"B1: {len(bars)}Ø{db_d:g} TOTAL", th, shelf=th, side=-1))
-    d.ents.append(ir.Leader((B / 2 - R - ds / 2, -H / 4),
-                            (B / 2 + 10 * th, -H / 2 - 4 * th),
-                            f"B3: Ø{ds:g}@{p['e_estribo'] * 10:g} E", th, shelf=th))
+    d.ents.append(
+        ir.Leader(
+            (-x0, y0),
+            (-B / 2 - 10 * th, H / 2 + 5 * th),
+            f"B1: {len(bars)}Ø{db_d:g} TOTAL",
+            th,
+            shelf=th,
+            side=-1,
+        )
+    )
+    d.ents.append(
+        ir.Leader(
+            (B / 2 - R - ds / 2, -H / 4),
+            (B / 2 + 10 * th, -H / 2 - 4 * th),
+            f"B3: Ø{ds:g}@{p['e_estribo'] * 10:g} E",
+            th,
+            shelf=th,
+        )
+    )
     for i, path in enumerate(inner_paths, start=4):
         side = -1 if i == 4 else 1
         # Lazo vertical: punto en su cara izquierda; horizontal: cara superior.
@@ -242,8 +260,9 @@ def build_pedestal(p: dict) -> ir.Drawing:
             y_top = max(y for x, y in path)
             tip = (max(x for x, y in path if abs(y - y_top) < 1e-6), y_top)
             elbow = (B / 2 + 10 * th, H / 2 + 5 * th)
-        d.ents.append(ir.Leader(tip, elbow, f"B{i}: Ø{ds:g}@{p['e_estribo'] * 10:g} E",
-                                th, shelf=th, side=side))
+        d.ents.append(
+            ir.Leader(tip, elbow, f"B{i}: Ø{ds:g}@{p['e_estribo'] * 10:g} E", th, shelf=th, side=side)
+        )
 
     # ------------------------- ELEVACIÓN (a la derecha) -------------------
     Wf = p["ancho_zap"] * 10.0
@@ -251,12 +270,10 @@ def build_pedestal(p: dict) -> ir.Drawing:
     ex = section_bounds[2] + 16 * th + Wf / 2
     y_min = section_bounds[1]
     if p["elevacion"]:
-        y_min = min(y_min, _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds,
-                                          arranque_xs, len(bars), f, th))
+        y_min = min(y_min, _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, arranque_xs, len(bars), f, th))
 
     # ---------------------- CUADRO DESPIECE ----------------------
-    filas, total = _despiece(p, B, H, R, db_d, ds, layout, bars,
-                             outer_stirrup, inner_paths, f)
+    filas, total = _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup, inner_paths, f)
     y_tab = y_min - 30 * f
     ancho_tab = sum(w for w in [20, 34, 16, 14, 24, 24, 26]) * f
     if p.get("cuadro", True):
@@ -267,19 +284,25 @@ def build_pedestal(p: dict) -> ir.Drawing:
     # --------------------------- TÍTULO ---------------------------
     notas = [
         f"CONCRETO f'c = {float(p.get('fc', 21)):g} MPa  |  ACERO fy = {float(p.get('fy', 420)):g} MPa",
-        f"RECUBRIMIENTO r = {ir.fmt_cm(R)} cm  |  "
-        f"ESTRIBOS Ø{ds:g} c/{ir.fmt_cm(p['e_estribo'] * 10)} cm",
+        f"RECUBRIMIENTO r = {ir.fmt_cm(R)} cm  |  ESTRIBOS Ø{ds:g} c/{ir.fmt_cm(p['e_estribo'] * 10)} cm",
     ]
     if p.get("modo_b1", "Manual (esquemático)") != "Según elevación":
         notas.append(f"B1 MANUAL: L = {_b1_length(p) / 1000:g} m; ELEVACIÓN ESQUEMÁTICA, VERIFICAR EXTREMOS")
     notas.append("TRASLAPE B1/B2 POR CONTACTO: B2 HACIA EL NÚCLEO; SECCIÓN SOBRE TRASLAPE")
     notas.append("GEOMETRÍA DE DETALLE; ANCLAJES Y TRASLAPES REQUIEREN VERIFICACIÓN DE DISEÑO")
     for i, s in enumerate(notas):
-        d.ents.append(Text((section_bounds[0], y_min - (i + 1) * 3 * th), s,
-                           2.5 * f, 0, ir.L_TXT, "l", "m"))
-    d.ents.append(Text((0, y_min - (len(notas) + 2) * 3 * th),
-                       f"PEDESTAL {ir.fmt_m(B)}x{ir.fmt_m(H)} m  -  "
-                       f"ESC {p['escala']}", 4.5 * f, 0, ir.L_TXT, "c", "m"))
+        d.ents.append(Text((section_bounds[0], y_min - (i + 1) * 3 * th), s, 2.5 * f, 0, ir.L_TXT, "l", "m"))
+    d.ents.append(
+        Text(
+            (0, y_min - (len(notas) + 2) * 3 * th),
+            f"PEDESTAL {ir.fmt_m(B)}x{ir.fmt_m(H)} m  -  ESC {p['escala']}",
+            4.5 * f,
+            0,
+            ir.L_TXT,
+            "c",
+            "m",
+        )
+    )
     return d
 
 
@@ -297,9 +320,11 @@ def _stirrup_levels(p, R, ds):
 
 def _b1_length(p):
     """Longitud real del tramo mostrado, o longitud histórica declarada."""
-    value = (float(p["H"]) * 10 - float(p["r"]) * 10
-             if p.get("modo_b1") == "Según elevación"
-             else float(p["largo_barra"]) * 1000)
+    value = (
+        float(p["H"]) * 10 - float(p["r"]) * 10
+        if p.get("modo_b1") == "Según elevación"
+        else float(p["largo_barra"]) * 1000
+    )
     if not math.isfinite(value) or value <= 0:
         raise ValueError("La longitud B1 debe ser positiva y finita")
     return value
@@ -310,10 +335,12 @@ def _starter_path(p):
     if not math.isfinite(leg) or leg <= 0:
         raise ValueError("La pata del arranque debe ser positiva y finita")
     # Plantillas previas: mantener eje histórico a 60 mm del fondo.
-    axis_cover = (float(p["r_zapata"]) + float(p["d_barra"]) / 2
-                  if "r_zapata" in p else 60.0)
-    return [(leg, -p["alto_zap"] * 10 + axis_cover),
-            (0, -p["alto_zap"] * 10 + axis_cover), (0, p["traslape"] * 10)]
+    axis_cover = float(p["r_zapata"]) + float(p["d_barra"]) / 2 if "r_zapata" in p else 60.0
+    return [
+        (leg, -p["alto_zap"] * 10 + axis_cover),
+        (0, -p["alto_zap"] * 10 + axis_cover),
+        (0, p["traslape"] * 10),
+    ]
 
 
 def _validate_starters(p, xs, diameter):
@@ -321,8 +348,7 @@ def _validate_starters(p, xs, diameter):
     cover = float(p.get("r_zapata", 60 - diameter / 2))
     width, depth = float(p["ancho_zap"]) * 10, float(p["alto_zap"]) * 10
     lap = float(p["traslape"]) * 10
-    if (not all(math.isfinite(v) for v in (cover, width, depth, lap))
-            or cover < 0 or min(width, depth) <= 0):
+    if not all(math.isfinite(v) for v in (cover, width, depth, lap)) or cover < 0 or min(width, depth) <= 0:
         raise ValueError("Dimensiones de zapata/recubrimiento inválidas")
     if lap <= 0 or lap > float(p["H"]) * 10 - float(p["r"]) * 10:
         raise ValueError("El traslape debe quedar dentro de la altura útil del pedestal")
@@ -335,8 +361,7 @@ def _validate_starters(p, xs, diameter):
         if any(abs(x - main_x) < diameter - 1e-6 for main_x in xs):
             raise ValueError("El traslape por contacto no cabe entre barras; revise la distribución")
         sign = -1 if i % 2 else 1
-        if any(abs(x + sign * px) + diameter / 2 > width / 2 - cover + 1e-6
-               for px, py in path):
+        if any(abs(x + sign * px) + diameter / 2 > width / 2 - cover + 1e-6 for px, py in path):
             raise ValueError("El arranque invade el recubrimiento lateral de la zapata")
 
 
@@ -369,68 +394,66 @@ def _elevacion_ped(d, dbb, p, ex, B, H, R, db_d, ds, xs, n_long, f, th):
         e.append(ir.rect(ex - B / 2, 0, ex + B / 2, seg))
         e.append(ir.rect(ex - B / 2, y_upper, ex + B / 2, Hdraw))
         for yb in (seg, y_upper):
-            e.extend(break_line((ex - B / 2 - 5 * f, yb),
-                                (ex + B / 2 + 5 * f, yb), 5 * f))
+            e.extend(break_line((ex - B / 2 - 5 * f, yb), (ex + B / 2 + 5 * f, yb), 5 * f))
     else:
         seg, y_upper, Hdraw = Hm, Hm, Hm
         e.append(ir.rect(ex - B / 2, 0, ex + B / 2, Hdraw))
-    e.extend(break_line((ex - B / 2 - 6 * f, Hdraw),
-                        (ex + B / 2 + 6 * f, Hdraw), 5 * f))
+    e.extend(break_line((ex - B / 2 - 6 * f, Hdraw), (ex + B / 2 + 6 * f, Hdraw), 5 * f))
     # arranques con gancho en zapata (alternando lado) + barras principales
     for i, xb in enumerate(xs):
         x = ex + xb
         starter_x = ex + _starter_axis(xb, db_d)
         sgn = -1 if i % 2 else 1
         hook_y = -hf + 60
-        arr, _ = poly_bar([(starter_x + sgn * px, py) for px, py in _starter_path(p)], db_d, 3 * db_d,
-                          width=max(1.2, db_d * 0.14))
+        arr, _ = poly_bar(
+            [(starter_x + sgn * px, py) for px, py in _starter_path(p)],
+            db_d,
+            3 * db_d,
+            width=max(1.2, db_d * 0.14),
+        )
         e.extend(arr)
         if shortened:
-            e.append(Line((x, 0), (x, seg), ir.L_ACERO,
-                          width=max(1.2, db_d * 0.14)))
-            e.append(Line((x, y_upper), (x, Hdraw - R), ir.L_ACERO,
-                          width=max(1.2, db_d * 0.14)))
+            e.append(Line((x, 0), (x, seg), ir.L_ACERO, width=max(1.2, db_d * 0.14)))
+            e.append(Line((x, y_upper), (x, Hdraw - R), ir.L_ACERO, width=max(1.2, db_d * 0.14)))
         else:
-            e.append(Line((x, 0), (x, Hdraw - R), ir.L_ACERO,
-                          width=max(1.2, db_d * 0.14)))
+            e.append(Line((x, 0), (x, Hdraw - R), ir.L_ACERO, width=max(1.2, db_d * 0.14)))
     # estribos en vista: extremos representativos cuando existe rotura
     e_st = p["e_estribo"] * 10.0
     niv = _stirrup_levels(p, R, ds)
     if shortened:
         lower = [y for y in niv if y < seg - 10]
-        upper = [y_upper + (y - (Hm - seg)) for y in niv
-                 if y > Hm - seg + 10]
+        upper = [y_upper + (y - (Hm - seg)) for y in niv if y > Hm - seg + 10]
         niv = lower + upper
     elif len(niv) > 12:
         niv = niv[:6] + niv[-6:]
     for y in niv:
-        e.append(Line((ex - B / 2 + R + ds / 2, y),
-                       (ex + B / 2 - R - ds / 2, y), ir.L_ACERO))
+        e.append(Line((ex - B / 2 + R + ds / 2, y), (ex + B / 2 - R - ds / 2, y), ir.L_ACERO))
     # ejes y nivel
     e.append(line_x(ex, -hf - 30 * f, Hdraw + 30 * f))
     e.extend(level_symbol((ex - Wf / 2 - 25 * f, 0), th, "N.P."))
-    e.append(Text((ex, Hdraw + 72 * f), "ELEVACIÓN", 3.5 * f,
-                  layer=ir.L_TXT, ha="c", va="m"))
+    e.append(Text((ex, Hdraw + 72 * f), "ELEVACIÓN", 3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
 
     # acotado
-    dbb.v_total(0, Hdraw, ex + B / 2, ex + B / 2 + 40 * f,
-                txt=ir.fmt_mm(Hm), ext_from=ex + B / 2)
-    dbb.v_total(0, lap, ex - B / 2, ex - B / 2 - 40 * f,
-                texts=[f"TR = {ir.fmt_m(lap)}"], ext_from=ex - B / 2)
+    dbb.v_total(0, Hdraw, ex + B / 2, ex + B / 2 + 40 * f, txt=ir.fmt_mm(Hm), ext_from=ex + B / 2)
+    dbb.v_total(0, lap, ex - B / 2, ex - B / 2 - 40 * f, texts=[f"TR = {ir.fmt_m(lap)}"], ext_from=ex - B / 2)
     yb = -hf - 40 * f
-    dbb.h_chain([ex - Wf / 2, ex + Wf / 2], -hf, yb, ext_from=-hf,
-                texts=[f"{ir.fmt_m(Wf)}"])
+    dbb.h_chain([ex - Wf / 2, ex + Wf / 2], -hf, yb, ext_from=-hf, texts=[f"{ir.fmt_m(Wf)}"])
     dbb.h_total(ex - B / 2, ex + B / 2, 0, -hf - 75 * f, ext_from=-hf)
-    e.append(ir.Leader((ex + _starter_axis(xs[-1], db_d), 60),
-                       (ex + Wf / 2 + 4 * th, 60 + 8 * th),
-                       f"ARRANQUES {n_long}Ø{db_d:g}", th, shelf=20 * f,
-                       side=1))
+    e.append(
+        ir.Leader(
+            (ex + _starter_axis(xs[-1], db_d), 60),
+            (ex + Wf / 2 + 4 * th, 60 + 8 * th),
+            f"ARRANQUES {n_long}Ø{db_d:g}",
+            th,
+            shelf=20 * f,
+            side=1,
+        )
+    )
     return -hf - 120 * f
 
 
 # ------------------------------------------------------------- despiece --
-def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup,
-              inner_paths, f):
+def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup, inner_paths, f):
     filas = []
     total = 0.0
     Hm = p["H"] * 10.0
@@ -438,8 +461,7 @@ def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup,
 
     # B1 barras principales (rectas)
     L1 = _b1_length(p)
-    celdas, sk, dev = fila_barra("B1", "recta", [(0, 0), (0, L1)], db_d,
-                                 2 * db_d, qty_long)
+    celdas, sk, dev = fila_barra("B1", "recta", [(0, 0), (0, L1)], db_d, 2 * db_d, qty_long)
     celdas[4] = f"{L1 / 1000:.2f}"
     pu = peso_barra(db_d)
     celdas[6] = f"{pu * qty_long * L1 / 1000:.1f}"
@@ -449,8 +471,7 @@ def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup,
     # B2 arranques (L con gancho en zapata)
     hf = p["alto_zap"] * 10.0
     lap = p["traslape"] * 10.0
-    celdas, sk, dev = fila_barra("B2", "L", _starter_path(p),
-                                 db_d, 3 * db_d, qty_long)
+    celdas, sk, dev = fila_barra("B2", "L", _starter_path(p), db_d, 3 * db_d, qty_long)
     total += peso_barra(db_d) * qty_long * dev / 1000.0
     filas.append((celdas, sk))
 
@@ -468,8 +489,7 @@ def _despiece(p, B, H, R, db_d, ds, layout, bars, outer_stirrup,
     # se dibuja en sección y su cantidad longitudinal de estribos.
     for i, path in enumerate(inner_paths, start=4):
         local = [(x + B / 2, y + H / 2) for x, y in path]
-        celdas, sk, dev = fila_barra(f"B{i}", "lazo", local, ds,
-                                     2.5 * ds, q3)
+        celdas, sk, dev = fila_barra(f"B{i}", "lazo", local, ds, 2.5 * ds, q3)
         total += peso_barra(ds) * q3 * dev / 1000.0
         filas.append((celdas, sk))
     return filas, total
