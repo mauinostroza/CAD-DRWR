@@ -65,9 +65,9 @@ export function resumenGeom(geom: FundacionGeom): ResumenGeom {
 /** Fija el espesor (mm) de todas las áreas de la zapata i. Valores no válidos no cambian nada. */
 export function setEspesorZapata(geom: FundacionGeom, i: number, mm: number): FundacionGeom {
   if (!valorPositivo(mm)) return { ...geom, zapatas: [...geom.zapatas] }
-  return conZapata(geom, i, z => ({
+  return conZapata(geom, i, (z) => ({
     ...z,
-    areas: z.areas.map(a => ({ ...a, espesor: mm })),
+    areas: z.areas.map((a) => ({ ...a, espesor: mm })),
   }))
 }
 
@@ -85,7 +85,7 @@ export function setPedestal(
   if (cambios.largo !== undefined && valorPositivo(cambios.largo)) aplicar.largo = cambios.largo
   if (cambios.ancho !== undefined && valorPositivo(cambios.ancho)) aplicar.ancho = cambios.ancho
   if (cambios.largo_en_x !== undefined) aplicar.largo_en_x = cambios.largo_en_x
-  return conZapata(geom, i, z => ({
+  return conZapata(geom, i, (z) => ({
     ...z,
     pedestales: z.pedestales.map((p, k) => (k === j ? { ...p, ...aplicar } : p)),
   }))
@@ -93,7 +93,7 @@ export function setPedestal(
 
 /** Quita el pedestal j de la zapata i. */
 export function quitarPedestal(geom: FundacionGeom, i: number, j: number): FundacionGeom {
-  return conZapata(geom, i, z => ({
+  return conZapata(geom, i, (z) => ({
     ...z,
     pedestales: z.pedestales.filter((_, k) => k !== j),
   }))

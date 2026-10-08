@@ -12,7 +12,7 @@ import {
   type ResumenEnvio,
 } from './bridgeCad'
 
-vi.mock('./bridgeCad', async importOriginal => {
+vi.mock('./bridgeCad', async (importOriginal) => {
   const real = await importOriginal<typeof import('./bridgeCad')>()
   return {
     ...real,
@@ -36,7 +36,13 @@ function dibujo(n: number): DibujoRespuesta {
     th: 3.5,
     bounds: null,
     render: [],
-    cad: Array.from({ length: n }, (_, i) => ({ t: 'line', a: [i, 0], b: [i, 1], l: 'CONCRETO', w: 0 })),
+    cad: Array.from({ length: n }, (_, i) => ({
+      t: 'line',
+      a: [i, 0],
+      b: [i, 1],
+      l: 'CONCRETO',
+      w: 0,
+    })),
     n_render: 0,
     n_cad: n,
     modulo: 'zapata',
@@ -75,7 +81,9 @@ describe('EnvioCadDialog', () => {
     render(<EnvioCadDialog dibujo={dibujo(10)} nombre="Z1" onCerrar={() => undefined} />)
 
     expect(
-      await screen.findByText(/Abra SAP2000Bridge y use el emparejamiento del módulo SAP2000 del Workbench/),
+      await screen.findByText(
+        /Abra SAP2000Bridge y use el emparejamiento del módulo SAP2000 del Workbench/,
+      ),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
     expect(estadoCad).not.toHaveBeenCalled()
@@ -93,13 +101,18 @@ describe('EnvioCadDialog', () => {
 
   it('flujo feliz: espera de clic, progreso real y resumen', async () => {
     let darClic!: () => void
-    const clic = new Promise<void>(r => (darClic = r))
+    const clic = new Promise<void>((r) => (darClic = r))
     let terminar!: () => void
-    const fin = new Promise<void>(r => (terminar = r))
+    const fin = new Promise<void>((r) => (terminar = r))
     vi.mocked(enviarDibujo).mockImplementation(async (_c, _d, op) => {
       op.onEstado?.({ fase: 'esperando_clic', hechas: 0, total: 1000, mensaje: '' })
       await clic
-      op.onEstado?.({ fase: 'enviando', hechas: 500, total: 1000, mensaje: 'Enviadas 500 de 1000.' })
+      op.onEstado?.({
+        fase: 'enviando',
+        hechas: 500,
+        total: 1000,
+        mensaje: 'Enviadas 500 de 1000.',
+      })
       await fin
       return resumen()
     })
@@ -124,7 +137,11 @@ describe('EnvioCadDialog', () => {
     terminar()
     expect(await screen.findByText(/1000 entidades creadas, 0 omitidas/)).toBeInTheDocument()
     expect(screen.queryByText(/Entidades omitidas/)).toBeNull()
-    expect(enviarDibujo).toHaveBeenCalledWith(CREDS, expect.anything(), expect.objectContaining({ ubicarConClic: true }))
+    expect(enviarDibujo).toHaveBeenCalledWith(
+      CREDS,
+      expect.anything(),
+      expect.objectContaining({ ubicarConClic: true }),
+    )
   })
 
   it('muestra la lista plegable de entidades omitidas', async () => {
@@ -188,7 +205,9 @@ describe('EnvioCadDialog', () => {
   })
 
   it('un error que no es de pick muestra el mensaje y permite volver a enviar', async () => {
-    vi.mocked(enviarDibujo).mockRejectedValueOnce(new ErrorPuente('validacion', 'ents.0.l: Capa desconocida: X'))
+    vi.mocked(enviarDibujo).mockRejectedValueOnce(
+      new ErrorPuente('validacion', 'ents.0.l: Capa desconocida: X'),
+    )
     const user = userEvent.setup()
     render(<EnvioCadDialog dibujo={dibujo(4)} nombre="Z1" onCerrar={() => undefined} />)
     await user.click(await screen.findByRole('button', { name: 'Enviar' }))

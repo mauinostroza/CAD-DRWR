@@ -12,12 +12,13 @@ import {
 } from './bridgeCad'
 import type { EntCad } from './tipos'
 
-const CREDS: BridgeCreds = { source: 'local', url: 'http://127.0.0.1:8765', token: 'tok-123' }
+const URL_BASE = 'http://127.0.0.1:8765'
+const CREDS: BridgeCreds = { source: 'local', url: URL_BASE, token: 'tok-123' }
 const RAIZ = '/v1/sap/actions/cad'
 
 type Resp = { status: number; json?: unknown }
 type Llamada = { ruta: string; body: Record<string, unknown>; auth: string | null }
-type Manejador = (ruta: string, body: Record<string, unknown>) => Resp | Error
+type Manejador = (ruta: string, body: Record<string, unknown>) => Resp | Error | DOMException
 
 function respuesta(r: Resp) {
   return {
@@ -34,16 +35,17 @@ function respuesta(r: Resp) {
 function montarFetch(manejador: Manejador) {
   const llamadas: Llamada[] = []
   const fn = vi.fn(async (url: string, init: RequestInit) => {
-    const ruta = url.slice(CREDS.url.length).replace(RAIZ, '')
+    const ruta = url.slice(URL_BASE.length).replace(RAIZ, '')
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
     const headers = init.headers as Record<string, string>
     llamadas.push({ ruta, body, auth: headers.Authorization ?? null })
     const r = manejador(ruta, body)
-    if (r instanceof Error) throw r
+    // Un error lanzado (red caída, cancelación) no es una respuesta HTTP.
+    if (!('status' in r)) throw r
     return respuesta(r)
   })
   vi.stubGlobal('fetch', fn)
-  return { fn, llamadas, rutas: () => llamadas.map(l => l.ruta) }
+  return { fn, llamadas, rutas: () => llamadas.map((l) => l.ruta) }
 }
 
 /** Respuestas por defecto de un envío correcto; `extra` sobrescribe rutas concretas. */
@@ -121,14 +123,21 @@ describe('enviarDibujo: orquestación', () => {
     const r = await enviarDibujo(CREDS, dibujo(1200), { ubicarConClic: false })
 
     expect(TAM_LOTE).toBe(500)
-    expect(rutas()).toEqual(['/status', '/draw/begin', '/draw/batch', '/draw/batch', '/draw/batch', '/draw/end'])
-    const lotes = llamadas.filter(l => l.ruta === '/draw/batch')
-    expect(lotes.map(l => (l.body.ents as unknown[]).length)).toEqual([500, 500, 200])
-    expect(lotes.every(l => l.body.sesion === 'S1')).toBe(true)
+    expect(rutas()).toEqual([
+      '/status',
+      '/draw/begin',
+      '/draw/batch',
+      '/draw/batch',
+      '/draw/batch',
+      '/draw/end',
+    ])
+    const lotes = llamadas.filter((l) => l.ruta === '/draw/batch')
+    expect(lotes.map((l) => (l.body.ents as unknown[]).length)).toEqual([500, 500, 200])
+    expect(lotes.every((l) => l.body.sesion === 'S1')).toBe(true)
 
-    const begin = llamadas.find(l => l.ruta === '/draw/begin')!
+    const begin = llamadas.find((l) => l.ruta === '/draw/begin')!
     expect(begin.body).toEqual({ confirmed: true, n_total: 1200, th: 3.5 })
-    expect(llamadas.find(l => l.ruta === '/draw/end')!.body).toEqual({ sesion: 'S1' })
+    expect(llamadas.find((l) => l.ruta === '/draw/end')!.body).toEqual({ sesion: 'S1' })
     expect(r.documento).toBe('plano.dwg')
     expect(r.resumen).toBe('Resumen OK')
   })
@@ -136,7 +145,7 @@ describe('enviarDibujo: orquestación', () => {
   it('envía el Bearer del puente en cada llamada', async () => {
     const { llamadas } = montarFetch(ruteoOk())
     await enviarDibujo(CREDS, dibujo(3), { ubicarConClic: false })
-    expect(llamadas.every(l => l.auth === 'Bearer tok-123')).toBe(true)
+    expect(llamadas.every((l) => l.auth === 'Bearer tok-123')).toBe(true)
   })
 
   it('con ubicarConClic envía el origen del pick en begin', async () => {
@@ -144,17 +153,24 @@ describe('enviarDibujo: orquestación', () => {
     const fases: EstadoEnvio['fase'][] = []
     await enviarDibujo(CREDS, dibujo(2), {
       ubicarConClic: true,
-      onEstado: e => fases.push(e.fase),
+      onEstado: (e) => fases.push(e.fase),
     })
     expect(rutas()).toContain('/pick')
-    expect(llamadas.find(l => l.ruta === '/draw/begin')!.body.origen).toEqual([10, -5])
-    expect(fases).toEqual(['conectando', 'esperando_clic', 'enviando', 'enviando', 'finalizando', 'listo'])
+    expect(llamadas.find((l) => l.ruta === '/draw/begin')!.body.origen).toEqual([10, -5])
+    expect(fases).toEqual([
+      'conectando',
+      'esperando_clic',
+      'enviando',
+      'enviando',
+      'finalizando',
+      'listo',
+    ])
   })
 
   it('sin pick no envía origen', async () => {
     const { llamadas } = montarFetch(ruteoOk())
     await enviarDibujo(CREDS, dibujo(2), { ubicarConClic: false })
-    expect('origen' in llamadas.find(l => l.ruta === '/draw/begin')!.body).toBe(false)
+    expect('origen' in llamadas.find((l) => l.ruta === '/draw/begin')!.body).toBe(false)
   })
 
   it('acumula errores de cada lote con índice global (offset)', async () => {
@@ -169,7 +185,10 @@ describe('enviarDibujo: orquestación', () => {
             : n === 3
               ? [{ indice: 199, tipo: 'text', motivo: 'Fuente no encontrada' }]
               : []
-        return { status: 200, json: { creadas: ents.length - errores.length, omitidas: errores.length, errores } }
+        return {
+          status: 200,
+          json: { creadas: ents.length - errores.length, omitidas: errores.length, errores },
+        }
       },
       '/draw/end': () => ({
         status: 200,
@@ -193,16 +212,20 @@ describe('enviarDibujo: orquestación', () => {
         '/draw/batch': (_r, body) => {
           lotes += 1
           if (lotes === 1) ctrl.abort()
-          return { status: 200, json: { creadas: (body.ents as unknown[]).length, omitidas: 0, errores: [] } }
+          return {
+            status: 200,
+            json: { creadas: (body.ents as unknown[]).length, omitidas: 0, errores: [] },
+          }
         },
       }),
     )
-    const err = await enviarDibujo(CREDS, dibujo(1200), { ubicarConClic: false, signal: ctrl.signal }).catch(
-      (e: unknown) => e,
-    )
+    const err = await enviarDibujo(CREDS, dibujo(1200), {
+      ubicarConClic: false,
+      signal: ctrl.signal,
+    }).catch((e: unknown) => e)
     expect(err).toMatchObject({ name: 'AbortError' })
     expect(lotes).toBe(1)
-    const fin = llamadas.filter(l => l.ruta === '/draw/end')
+    const fin = llamadas.filter((l) => l.ruta === '/draw/end')
     expect(fin).toHaveLength(1)
     expect(fin[0].body).toEqual({ sesion: 'S1' })
   })
@@ -223,7 +246,9 @@ describe('enviarDibujo: orquestación', () => {
         '/draw/batch': () => ({
           status: 422,
           json: {
-            detail: [{ loc: ['body', 'ents', 0, 'l'], msg: 'Capa desconocida: X', type: 'value_error' }],
+            detail: [
+              { loc: ['body', 'ents', 0, 'l'], msg: 'Capa desconocida: X', type: 'value_error' },
+            ],
           },
         }),
       }),
@@ -238,7 +263,13 @@ describe('enviarDibujo: orquestación', () => {
       ruteoOk({
         '/status': () => ({
           status: 200,
-          json: { conectado: false, programa: null, version: null, documento: null, detalle: 'No hay ZWCAD abierto' },
+          json: {
+            conectado: false,
+            programa: null,
+            version: null,
+            documento: null,
+            detalle: 'No hay ZWCAD abierto',
+          },
         }),
       }),
     )
@@ -285,7 +316,10 @@ describe('mapeo de errores HTTP', () => {
   })
 
   it('409 -> cad con el detalle real del servidor', async () => {
-    montarFetch(() => ({ status: 409, json: { detail: 'La sesión de dibujo venció; vuelva a enviar' } }))
+    montarFetch(() => ({
+      status: 409,
+      json: { detail: 'La sesión de dibujo venció; vuelva a enviar' },
+    }))
     const err = await errorDe(batchCad(CREDS, { sesion: 'X', ents: [] }))
     expect(err.codigo).toBe('cad')
     expect(err.message).toBe('La sesión de dibujo venció; vuelva a enviar')
@@ -294,7 +328,9 @@ describe('mapeo de errores HTTP', () => {
   it('422 -> validacion con los campos indicados por el servidor', async () => {
     montarFetch(() => ({
       status: 422,
-      json: { detail: [{ loc: ['body', 'n_total'], msg: 'Debe ser menor o igual que 20000', type: 'x' }] },
+      json: {
+        detail: [{ loc: ['body', 'n_total'], msg: 'Debe ser menor o igual que 20000', type: 'x' }],
+      },
     }))
     const err = await errorDe(estadoCad(CREDS))
     expect(err.codigo).toBe('validacion')

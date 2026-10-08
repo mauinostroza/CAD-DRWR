@@ -2,8 +2,7 @@
 // Solo lo importa bridgeCad.ts.
 
 export type BridgeCreds =
-  | { source: 'local' | 'paired'; url: string; token: string }
-  | { source: 'none' }
+  { source: 'local' | 'paired'; url: string; token: string } | { source: 'none' }
 
 export type RespuestaCruda<T> = { status: number; data: T }
 

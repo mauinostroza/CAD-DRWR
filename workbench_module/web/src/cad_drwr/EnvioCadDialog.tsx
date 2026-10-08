@@ -83,7 +83,7 @@ function DialogoEnvio({
     puenteCtrlRef.current = ctrl
     setPuente({ tipo: 'comprobando' })
     obtenerCredenciales()
-      .then(async c => {
+      .then(async (c) => {
         if (ctrl.signal.aborted) return
         if (c.source === 'none') {
           credsRef.current = null
@@ -145,7 +145,7 @@ function DialogoEnvio({
       const resumen = await enviarDibujo(creds, dibujo, {
         ubicarConClic: conUbicacion,
         signal: ctrl.signal,
-        onEstado: estado => {
+        onEstado: (estado) => {
           faseActual = estado.fase
           if (!ctrl.signal.aborted) setEnvio({ tipo: 'en_curso', estado })
         },
@@ -249,7 +249,7 @@ function DialogoEnvio({
               type="checkbox"
               checked={ubicar}
               disabled={enCurso || puente.tipo !== 'listo'}
-              onChange={e => setUbicar(e.target.checked)}
+              onChange={(e) => setUbicar(e.target.checked)}
             />{' '}
             Ubicar con clic
           </label>
@@ -323,7 +323,7 @@ function DialogoEnvio({
                     </tr>
                   </thead>
                   <tbody>
-                    {envio.resumen.errores.slice(0, MAX_ERRORES_VISIBLES).map(err => (
+                    {envio.resumen.errores.slice(0, MAX_ERRORES_VISIBLES).map((err) => (
                       <tr key={`${err.indice}-${err.motivo}`}>
                         <td>{err.indice}</td>
                         <td>{err.tipo}</td>

@@ -9,7 +9,7 @@ export type { BridgeCreds }
 
 const PREFIJO = '/v1/sap/actions/cad'
 
-export const MENSAJE_ANTIGUO ='Su SAP2000Bridge es anterior a este módulo; actualice el puente.'
+export const MENSAJE_ANTIGUO = 'Su SAP2000Bridge es anterior a este módulo; actualice el puente.'
 export const MENSAJE_SESION =
   'El puente rechazó el token. Vuelva a emparejar SAP2000Bridge desde el módulo SAP2000 del Workbench.'
 export const MENSAJE_SIN_EMPAREJAR =
@@ -60,7 +60,7 @@ export function textoDetalle(data: unknown): string | null {
       if (!item || typeof item !== 'object') continue
       const { loc, msg } = item as { loc?: unknown; msg?: unknown }
       if (typeof msg !== 'string') continue
-      const campo = Array.isArray(loc) ? loc.filter(p => p !== 'body').join('.') : ''
+      const campo = Array.isArray(loc) ? loc.filter((p) => p !== 'body').join('.') : ''
       partes.push(campo ? `${campo}: ${msg}` : msg)
     }
     return partes.length > 0 ? partes.join('; ') : null
