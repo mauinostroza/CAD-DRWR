@@ -1,0 +1,247 @@
+# -*- coding: utf-8 -*-
+"""
+generators.slab — Losa de hormigón armado (sección transversal).
+
+Armadura inferior con ganchos, repartición, armadura superior opcional,
+apoyos hachurados, acotado y cuadro de despiece.
+"""
+
+from .data import DIAM_BARRAS, ESCALAS
+from ..core import ir
+from ..core.ir import Line, Poly, Circle, Text
+from ..core.geom import hatch_poly, poly_bar, line_x
+from ..core.dims import DimBuilder
+from ..core.tables import cuadro_despiece, fila_barra, peso_barra
+from ..core.labels import rebar_spacing
+
+
+# ----------------------------------------------------------------- SPEC --
+SPEC = [
+    ("L", "Luz libre L (cm)", "float", 100, 1200, 400, 0, 10, ""),
+    ("t", "Espesor losa t (cm)", "float", 8, 40, 15, 1, 1, ""),
+    ("bw", "Ancho apoyo (cm)", "float", 10, 100, 20, 1, 5, ""),
+    ("hh", "Alto apoyo (cm)", "float", 20, 150, 40, 1, 5, ""),
+    ("r", "Recubrimiento (cm)", "float", 1.5, 8, 3, 1, 0.5, ""),
+    ("ancho_reparto", "Ancho de distribución de armadura B (cm)", "float", 50, 2000, 300, 1, 10, ""),
+    ("d1", "Ø inferior (mm)", "combo", DIAM_BARRAS, 12),
+    ("s1", "Espac. inferior (cm)", "float", 5, 40, 20, 1, 1, ""),
+    ("d2", "Ø repartición (mm)", "combo", DIAM_BARRAS, 8),
+    ("s2", "Espac. repart. (cm)", "float", 5, 40, 25, 1, 1, ""),
+    ("sup", "Armadura superior", "chk", True),
+    ("d3", "Ø superior (mm)", "combo", DIAM_BARRAS, 10),
+    ("s3", "Espac. superior (cm)", "float", 5, 40, 15, 1, 1, ""),
+    ("a", "Largo superior a (cm)", "float", 20, 300, 60, 0, 5, ""),
+    ("gv", "Gancho extremos (cm)", "float", 5, 40, 15, 1, 1, ""),
+    ("escala", "Escala de acotado", "combo", ESCALAS, "1:50"),
+]
+
+
+# -------------------------------------------------------------- generador --
+def build_slab(p: dict) -> ir.Drawing:
+    _validate_slab(p)
+    d = ir.Drawing()
+    f = p.get("_escala", 5.0)
+    th = 3.0 * f
+    db = DimBuilder(d.ents, th)
+
+    L = p["L"] * 10.0  # mm
+    t = p["t"] * 10.0
+    bw = p["bw"] * 10.0
+    hh = p["hh"] * 10.0
+    R = p["r"] * 10.0
+    Bdist = p["ancho_reparto"] * 10.0
+    d1, d2, d3 = float(p["d1"]), float(p["d2"]), float(p["d3"])
+    s1, s2 = p["s1"] * 10.0, p["s2"] * 10.0
+    gv = p["gv"] * 10.0
+    sup = p["sup"]
+    a = p["a"] * 10.0
+
+    # Every callout and schedule row is driven from these shared bar-layout
+    # quantities.  The requested spacing is a maximum; bars are distributed
+    # uniformly over the available width so the end covers remain explicit.
+    n1 = _bar_count(Bdist - 2 * R - d1, s1)
+    s1_eff = (Bdist - 2 * R - d1) / (n1 - 1) if n1 > 1 else 0.0
+    n3_per_support = _bar_count(Bdist - 2 * R - d3, p["s3"] * 10.0) if sup else 0
+    s3_eff = (Bdist - 2 * R - d3) / (n3_per_support - 1) if n3_per_support > 1 else 0.0
+
+    # ------------------------- geometría -------------------------
+    slab = ir.rect(-bw, 0, L + bw, t)
+    d.ents.append(slab)
+    d.ents.extend(hatch_poly(slab.pts, 12 * f))
+    for x0, x1 in ((-bw, 0), (L, L + bw)):
+        s = ir.rect(x0, -hh, x1, 0)
+        d.ents.append(s)
+        d.ents.extend(hatch_poly(s.pts, 9 * f))
+    # ejes de apoyos
+    for xc in (-bw / 2, L + bw / 2):
+        d.ents.append(line_x(xc, -hh - 25 * f, t + 30 * f))
+    d.ents.append(Text((L / 2, t + 105 * f), "SECCIÓN DE LOSA", 3.5 * f, layer=ir.L_TXT, ha="c", va="m"))
+
+    # armadura inferior con ganchos
+    yr = R + d1 / 2
+    end_x = -bw + R + d1 / 2.0
+    end_x_r = L + bw - R - d1 / 2.0
+    b1_pts = [(end_x, yr - gv), (end_x, yr), (end_x_r, yr), (end_x_r, yr - gv)]
+    b1, dev1 = poly_bar(b1_pts, d1, 2.5 * d1, width=max(1.2, d1 * 0.12))
+    d.ents.extend(b1)
+
+    # repartición (puntos en sección)
+    yd = yr + d1 / 2 + d2 / 2
+    span_centres = L + 2 * bw - 2 * R - d2
+    n2 = _bar_count(span_centres, s2)
+    for i in range(n2):
+        x = -bw + R + d2 / 2 + i * span_centres / (n2 - 1)
+        d.ents.append(Circle((x, yd), d2 / 2, ir.L_ACERO, filled=True))
+    s2_eff = span_centres / (n2 - 1)
+
+    # armadura superior (gancho hacia afuera, desarrollo hacia la luz)
+    dev3 = 0.0
+    if sup:
+        yt = t - R - d3 / 2
+        top_shapes = []
+        for xc in (-bw / 2, L + bw / 2):
+            sg = -1 if xc < L / 2 else 1
+            pts = [(xc + sg * 60, yt - gv), (xc + sg * 60, yt), (xc - sg * a, yt)]
+            b3, dev3_i = poly_bar(pts, d3, 2.5 * d3, width=max(1.2, d3 * 0.12))
+            top_shapes.append((pts, dev3_i))
+            dev3 = dev3_i
+            d.ents.extend(b3)
+
+    # ------------------------- acotado -------------------------
+    y1 = -hh - 45 * f
+    db.h_chain([-bw, 0, L, L + bw], -hh, y1, ext_from=-hh)
+    db.h_total(-bw, L + bw, -hh, y1 - 35 * f, ext_from=-hh)
+    x1 = L + bw + 45 * f
+    db.v_chain([-hh, 0, t], L + bw, x1, ext_from=L + bw)
+    # espaciamientos como cotas pequeñas sobre la losa
+    if sup:
+        db.h_total(-bw / 2, -bw / 2 + a, t, t + 45 * f, texts=[f"a = {ir.fmt_m(a)}"], ext_from=t)
+
+    # ------------------------- etiquetas -------------------------
+    d.ents.append(
+        ir.Leader(
+            (L * 0.5, yr),
+            (L * 0.5 - 60 * f, yr + 70 * f),
+            rebar_spacing(d1, s1_eff, "inferior"),
+            th,
+            shelf=25 * f,
+            side=-1,
+        )
+    )
+    d.ents.append(
+        ir.Leader(
+            (L * 0.75, yd),
+            (L * 0.75 + 40 * f, yd - 70 * f),
+            rebar_spacing(d2, s2_eff, "repartición"),
+            th,
+            shelf=25 * f,
+            side=1,
+        )
+    )
+    if sup:
+        d.ents.append(
+            ir.Leader(
+                (L + bw / 2 - a * 0.5, t - R),
+                (L + bw / 2 - a * 0.5 + 30 * f, t + 75 * f),
+                rebar_spacing(d3, s3_eff, "superior"),
+                th,
+                shelf=25 * f,
+                side=1,
+            )
+        )
+
+    # ---------------------- cuadro de despiece ----------------------
+    filas, total = [], 0.0
+    celdas, sk, _ = fila_barra("B1", "inf.", b1_pts, d1, 2.5 * d1, n1)
+    total += peso_barra(d1) * n1 * dev1 / 1000.0
+    filas.append((celdas, sk))
+
+    # Fabrication cut length is the clear distribution width minus the two
+    # specified axial covers; bar diameter controls center spacing, not this
+    # straight-bar length convention.
+    length2 = Bdist - 2 * R
+    celdas, sk, _ = fila_barra("B2", "repart.", [(0, 0), (length2, 0)], d2, 2 * d2, n2)
+    celdas[4] = f"{length2 / 1000.0:.2f}"
+    celdas[6] = f"{peso_barra(d2) * n2 * length2 / 1000.0:.2f}"
+    total += peso_barra(d2) * n2 * length2 / 1000.0
+    filas.append((celdas, sk))
+
+    if sup:
+        q3 = 2 * n3_per_support
+        celdas, sk, _ = fila_barra("B3", "sup.", top_shapes[0][0], d3, 2.5 * d3, q3)
+        total += peso_barra(d3) * q3 * dev3 / 1000.0
+        filas.append((celdas, sk))
+
+    y_tab = -hh - 160 * f
+    tb = cuadro_despiece((-bw - 90 * f, y_tab), f, filas, total_kg=total)
+    d.ents.append(tb)
+    y_min = y_tab - (len(filas) + 1.6) * tb.row_h - 14 * f
+
+    notas = [
+        f"CONCRETO f'c: no especificado  |  RECUBRIMIENTO r = {ir.fmt_cm(R)} cm",
+        f"LOSA e = {ir.fmt_cm(t)} cm  |  APOYOS: {ir.fmt_cm(bw)} cm",
+        f"ANCHO DE DISTRIBUCIÓN B = {ir.fmt_cm(Bdist)} cm",
+    ]
+    for i, s in enumerate(notas):
+        d.ents.append(Text((-bw - 90 * f, y_min - i * 8 * f), s, 2.5 * f, 0, ir.L_TXT, "l", "m"))
+    d.ents.append(
+        Text(
+            (L / 2, y_min - len(notas) * 8 * f - 14 * f),
+            f"LOSA {ir.fmt_cm(t)} cm, LUZ {ir.fmt_m(L)} m  -  ESC {p['escala']}",
+            4.5 * f,
+            0,
+            ir.L_TXT,
+            "c",
+            "m",
+        )
+    )
+    return d
+
+
+def _bar_count(available_width_mm: float, max_spacing_mm: float) -> int:
+    """Minimum number of bars giving uniform spacing <= requested spacing."""
+    import math
+
+    if available_width_mm <= 0 or max_spacing_mm <= 0:
+        raise ValueError("Ancho disponible y espaciamiento deben ser positivos")
+    return max(2, int(math.ceil(available_width_mm / max_spacing_mm)) + 1)
+
+
+def _validate_slab(p: dict) -> None:
+    required = (
+        "L",
+        "t",
+        "bw",
+        "hh",
+        "r",
+        "ancho_reparto",
+        "d1",
+        "s1",
+        "d2",
+        "s2",
+        "sup",
+        "d3",
+        "s3",
+        "a",
+        "gv",
+    )
+    missing = [key for key in required if key not in p]
+    if missing:
+        raise ValueError("Faltan parámetros de losa: " + ", ".join(missing))
+    positive = ("L", "t", "bw", "hh", "r", "ancho_reparto", "d1", "s1", "d2", "s2", "d3", "s3", "gv")
+    if any(float(p[key]) <= 0 for key in positive):
+        raise ValueError("Luz, espesores, diámetros y espaciamientos deben ser positivos")
+    if float(p["a"]) <= 0 or float(p["a"]) > float(p["L"]):
+        raise ValueError("El largo de armadura superior debe ser positivo y no superar L")
+    if float(p["ancho_reparto"]) * 10.0 <= (
+        2.0 * float(p["r"]) * 10.0 + max(float(p["d1"]), float(p["d2"]), float(p["d3"]) if p["sup"] else 0)
+    ):
+        raise ValueError("El ancho de distribución no permite recubrimiento y diámetro en ambos bordes")
+    if float(p["gv"]) * 10.0 > float(p["hh"]) * 10.0:
+        raise ValueError("El gancho inferior supera la altura disponible del apoyo")
+    if p["sup"] and float(p["bw"]) * 5.0 < (60.0 + float(p["r"]) * 10.0 + float(p["d3"]) / 2.0):
+        raise ValueError("La armadura superior no cabe dentro del apoyo con el recubrimiento indicado")
+    bottom_package = float(p["d1"]) + float(p["d2"])
+    top_package = float(p["d3"]) if p["sup"] else 0.0
+    if float(p["t"]) * 10.0 < (2.0 * float(p["r"]) * 10.0 + bottom_package + top_package):
+        raise ValueError("El espesor de losa no permite recubrimientos y paquete de armaduras")
