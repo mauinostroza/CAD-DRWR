@@ -119,16 +119,39 @@ def parchear_contratos(target, log):
     if not faltan:
         log.append("sin cambio web/src/bridge_contracts.json (ya aplicado)")
         return
-    lineas = "".join(
-        f"    {json.dumps(k, ensure_ascii=False)}: {json.dumps({kk: vv for kk, vv in v.items() if kk != 'opcionales'}, ensure_ascii=False)},\n"
+    lineas = ",\n".join(
+        f"    {json.dumps(k, ensure_ascii=False)}: {json.dumps({kk: vv for kk, vv in v.items() if kk != 'opcionales'}, ensure_ascii=False)}"
         for k, v in faltan.items()
     )
-    # Antes de las rutas de emparejamiento: test_previous_contract_keys_are_intact fija el orden
-    # del resto y solo tolera que las dos últimas (pairing) se desplacen.
-    ancla = '    "POST /v1/sap/pairing/request"'
-    if t.count(ancla) != 1:
-        raise AnclaFaltante("web/src/bridge_contracts.json: no se encontró la ruta de emparejamiento")
-    p.write_text(t.replace(ancla, lineas + ancla, 1), encoding="utf-8")
+    # Al FINAL del objeto «routes»: test_previous_contract_keys_are_intact exige que las rutas
+    # nuevas vayan después de todas las existentes (incluidas las de emparejamiento).
+    inicio = t.find('"routes"')
+    llave = t.find("{", inicio) if inicio >= 0 else -1
+    if llave < 0:
+        raise AnclaFaltante("web/src/bridge_contracts.json: no se encontró el objeto «routes»")
+    nivel, en_cadena, escapado, fin = 0, False, False, -1
+    for i in range(llave, len(t)):
+        ch = t[i]
+        if en_cadena:
+            if escapado:
+                escapado = False
+            elif ch == "\\":
+                escapado = True
+            elif ch == '"':
+                en_cadena = False
+        elif ch == '"':
+            en_cadena = True
+        elif ch == "{":
+            nivel += 1
+        elif ch == "}":
+            nivel -= 1
+            if nivel == 0:
+                fin = i
+                break
+    if fin < 0:
+        raise AnclaFaltante("web/src/bridge_contracts.json: «routes» sin cierre")
+    cuerpo = t[:fin].rstrip()
+    p.write_text(cuerpo + ",\n" + lineas + "\n  " + t[fin:], encoding="utf-8")
     log.append(f"editado   web/src/bridge_contracts.json (+{len(faltan)} rutas)")
 
 
