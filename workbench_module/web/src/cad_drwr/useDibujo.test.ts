@@ -154,6 +154,15 @@ describe('useDibujo', () => {
     expect(result.current).toMatchObject({ dibujo: null, error: null, cargando: false })
   })
 
+  it('trata `_geom: null` (valor por defecto del servidor) como ausencia de geometría', async () => {
+    const params = { escala: '1:50', _geom: null } as unknown as Params
+    const { result } = renderHook(() => useDibujo('fundacion_sap', params, LAMINA))
+    await avanzar(500)
+
+    expect(pedir).not.toHaveBeenCalled()
+    expect(result.current).toMatchObject({ dibujo: null, error: null, cargando: false })
+  })
+
   it('sí pide el dibujo en un módulo interactivo cuando hay geometría', async () => {
     renderHook(() => useDibujo('fundacion_sap', { escala: '1:50', _geom: 'geometria' }, LAMINA))
     await avanzar(150)

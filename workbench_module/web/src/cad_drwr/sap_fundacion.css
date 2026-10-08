@@ -151,14 +151,3 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) .sap-fund {
-    --cad-bg: #ffffff;
-    --cad-fg: #1d1f24;
-    --cad-border: #c9ccd4;
-    --cad-acento: #2563eb;
-    --cad-error: #b42318;
-    --cad-aviso: #8a5a00;
-  }
-}

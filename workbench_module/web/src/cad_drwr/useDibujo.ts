@@ -73,7 +73,7 @@ export function useDibujo(
 
   useEffect(() => {
     const almacen = cache.current ?? new Map<string, DibujoRespuesta>()
-    if (!modulo || (interactivo && params._geom === undefined)) {
+    if (!modulo || (interactivo && (params as Record<string, unknown>)._geom == null)) {
       setEstado(INICIAL)
       return
     }

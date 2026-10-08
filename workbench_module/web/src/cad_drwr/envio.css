@@ -140,15 +140,3 @@
   text-align: left;
   vertical-align: top;
 }
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) .envio-cad {
-    --cad-bg: #ffffff;
-    --cad-fg: #1d1f24;
-    --cad-border: #c9ccd4;
-    --cad-acento: #2563eb;
-    --cad-acento-suave: rgba(37, 99, 235, 0.12);
-    --cad-error: #b42318;
-    --cad-aviso: #8a5a00;
-  }
-}

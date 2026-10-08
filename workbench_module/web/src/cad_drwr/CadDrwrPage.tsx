@@ -233,6 +233,10 @@ export default function CadDrwrPage({ state, onState }: CadDrwrPageProps) {
     interactivo,
   )
 
+  // Al llegar el dibujo de OTRO módulo se reajusta la vista; al editar el mismo se conserva.
+  const moduloDibujado = dibujo?.modulo
+  useEffect(() => setAjuste((n) => n + 1), [moduloDibujado])
+
   const capasPresentes = useMemo(
     () => [...new Set(dibujo?.render.map((e) => e.l) ?? [])].sort(),
     [dibujo],
